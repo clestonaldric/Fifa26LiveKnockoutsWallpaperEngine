@@ -20,7 +20,46 @@ let cachedBaseRadius = 0;
 
 // Hardware Accelerated Rotation Variables
 let globalRotation = 0;
-const ROTATION_SPEED = 0.0012; 
+let ROTATION_SPEED = 0.0012; 
+
+// User-customisable settings (Wallpaper Engine will call applyUserProperties)
+const settings = {
+    rotationSpeed: ROTATION_SPEED,
+    glowIntensity: 1.0,
+    showCenterGlow: true,
+    audioReactive: true,
+    gridColor: { r: 212, g: 175, b: 55 },
+    backgroundColor: { r: 8, g: 8, b: 8 },
+    winnerLineBase: 2.0,
+    nonWinnerAlphaBase: 0.45
+};
+
+function parseWallpaperColor(property) {
+    if (!property) return null;
+    const color = property.color || property.value || property;
+    if (!color) return null;
+    if (typeof color === 'string') {
+        const hex = color.replace('#', '').trim();
+        if (/^[0-9A-Fa-f]{6}$/.test(hex)) {
+            return {
+                r: parseInt(hex.slice(0, 2), 16),
+                g: parseInt(hex.slice(2, 4), 16),
+                b: parseInt(hex.slice(4, 6), 16)
+            };
+        }
+        const parts = color.split(/[^0-9]+/).filter(Boolean).map(Number);
+        if (parts.length >= 3) {
+            return { r: parts[0], g: parts[1], b: parts[2] };
+        }
+    }
+    if (Array.isArray(color) && color.length >= 3) {
+        return { r: Number(color[0]), g: Number(color[1]), b: Number(color[2]) };
+    }
+    if (typeof color === 'object' && color.r !== undefined && color.g !== undefined && color.b !== undefined) {
+        return { r: Number(color.r), g: Number(color.g), b: Number(color.b) };
+    }
+    return null;
+}
 
 // Audio Responsiveness and Intro Animation Lifecycle Controllers
 let audioBass = 0;
@@ -285,7 +324,23 @@ function updateStatsPanelUI(match) {
     const home = comp.competitors.find(c => c.homeAway === 'home');
     const away = comp.competitors.find(c => c.homeAway === 'away');
     const stageName = comp.altGameNote || "FIFA World Cup";
-    const clockDisplay = match.status.type.detail;
+    // 1. Get the current match state ("pre" = scheduled, "in" = live, "post" = finished)
+    const matchState = match.status.type.state;
+    let clockDisplay = match.status.type.detail;
+
+    // 2. If the match hasn't started yet, convert ESPN's UTC string to local device time
+    if (matchState === "pre" && match.date) {
+        const utcKickoff = new Date(match.date);
+        
+        // Formats dynamically to the viewer's regional settings (e.g., "Jul 6, 8:30 PM EDT")
+        clockDisplay = utcKickoff.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'long' // Appends the local zone 
+        });
+    }
 
     const getMetric = (teamData, field) => {
         if (!teamData.statistics) return 0;
@@ -348,7 +403,9 @@ closePanelBtn.addEventListener('click', () => {
 
 function drawCanvasContext() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
 
+    // Draw radial tracks between nodes with audio-driven glow (matches working version)
     for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
         const currentRadius = (RADII_PROPORTIONS[round] / 100) * cachedBaseRadius;
         const nextRadius = (RADII_PROPORTIONS[round + 1] / 100) * cachedBaseRadius;
@@ -374,22 +431,25 @@ function drawCanvasContext() {
 
             const isWinnerTrack = (!node.isEmpty && parentNode.label === node.label);
 
-            if (isWinnerTrack) {
-                const teamColor = FLAG_COLORS[node.label] || '#d4af37';
-                ctx.strokeStyle = teamColor; 
-                ctx.lineWidth = 2.0; 
-                ctx.shadowColor = teamColor; 
-                ctx.shadowBlur = 8 + (audioBass * 16); 
-            } else if (node.isLive) {
-                ctx.strokeStyle = '#ffffff'; 
-                ctx.lineWidth = 2.0;
-                ctx.shadowColor = '#ffffff'; 
-                ctx.shadowBlur = 6 + (audioBass * 12);
-            } else {
-                ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)'; 
-                ctx.lineWidth = 1.5;
-                ctx.shadowBlur = 0; 
-            }
+                    if (isWinnerTrack) {
+                        const teamColor = FLAG_COLORS[node.label] || '#d4af37';
+                        ctx.strokeStyle = teamColor;
+                        ctx.lineWidth = settings.winnerLineBase + (effectiveAudioBass * settings.glowIntensity * 2.0);
+                        ctx.shadowColor = teamColor;
+                        ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
+                    } else if (node.isLive) {
+                        ctx.strokeStyle = '#00bfff'; 
+                        ctx.lineWidth = 2.5 + (effectiveAudioBass * settings.glowIntensity * 4);
+                        ctx.shadowColor = '#00bfff'; 
+                        ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 12);
+                    } else {
+                        // Gold-colored grid lines (non-winner)
+                        const gc = settings.gridColor;
+                        ctx.strokeStyle = `rgba(${gc.r}, ${gc.g}, ${gc.b}, ${settings.nonWinnerAlphaBase + effectiveAudioBass * 0.25 * settings.glowIntensity})`;
+                        ctx.lineWidth = 1.2 + (effectiveAudioBass * settings.glowIntensity * 0.9);
+                        ctx.shadowBlur = 0 + (effectiveAudioBass * settings.glowIntensity * 6);
+                        ctx.shadowColor = `rgba(${gc.r}, ${gc.g}, ${gc.b}, 0.9)`;
+                    }
 
             let currentLineProgress = 1;
             if (isLoadAnimating && isWinnerTrack) {
@@ -416,6 +476,7 @@ function drawCanvasContext() {
             ctx.stroke();
         });
     }
+
     particles.forEach(p => p.draw(ctx));
 }
 
@@ -471,6 +532,76 @@ function handleDisplayResize() {
     syncLayoutPositions(); 
     drawCanvasContext();
 }
+
+// Wallpaper Engine audio listener integration (if available)
+if (window.wallpaperRegisterAudioListener) {
+    window.wallpaperRegisterAudioListener((audioArray) => {
+        // compute bass energy
+        const bassLeft = (audioArray[0] + audioArray[1] + audioArray[2] + audioArray[3]) / 4;
+        const bassRight = (audioArray[64] + audioArray[65] + audioArray[66] + audioArray[67]) / 4;
+        audioBass = (bassLeft + bassRight) / 2;
+        const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
+
+        const centerGlow = document.querySelector('.center-glow');
+        if (centerGlow) {
+            if (settings.showCenterGlow) {
+                centerGlow.style.display = '';
+                centerGlow.style.transform = `scale(${1 + effectiveAudioBass * 0.35 * settings.glowIntensity})`;
+                centerGlow.style.opacity = 0.6 + effectiveAudioBass * 0.4 * settings.glowIntensity;
+            } else {
+                centerGlow.style.display = 'none';
+            }
+        }
+
+        const centerTrophy = document.getElementById('centerTrophy');
+        if (centerTrophy) {
+            centerTrophy.style.transform = `translate(-50%, -50%) scale(${1 + effectiveAudioBass * 0.12 * settings.glowIntensity})`;
+        }
+
+        if (!isAnimationLoopActive && !isLoadAnimating) {
+            drawCanvasContext();
+        }
+    });
+}
+
+// Wallpaper Engine property listener for user customizations
+window.wallpaperPropertyListener = {
+    applyUserProperties: function(properties) {
+        if (!properties) return;
+        if (properties.rotationSpeed && properties.rotationSpeed.value !== undefined) {
+            ROTATION_SPEED = parseFloat(properties.rotationSpeed.value);
+            settings.rotationSpeed = ROTATION_SPEED;
+        }
+        if (properties.glowIntensity && properties.glowIntensity.value !== undefined) {
+            settings.glowIntensity = parseFloat(properties.glowIntensity.value);
+        }
+        if (properties.showCenterGlow && properties.showCenterGlow.value !== undefined) {
+            settings.showCenterGlow = !!properties.showCenterGlow.value;
+            const centerGlow = document.querySelector('.center-glow');
+            if (centerGlow) centerGlow.style.display = settings.showCenterGlow ? '' : 'none';
+        }
+        if (properties.audioReactive && properties.audioReactive.value !== undefined) {
+            settings.audioReactive = !!properties.audioReactive.value;
+        }
+        if (properties.schemecolor) {
+            const parsedColor = parseWallpaperColor(properties.schemecolor);
+            if (parsedColor) {
+                settings.backgroundColor = parsedColor;
+                document.body.style.backgroundColor = `rgb(${parsedColor.r}, ${parsedColor.g}, ${parsedColor.b})`;
+            }
+        }
+        if (properties.gridColor) {
+            const parsedGridColor = parseWallpaperColor(properties.gridColor);
+            if (parsedGridColor) {
+                settings.gridColor = parsedGridColor;
+            }
+        }
+
+        // Force a redraw with new settings
+        syncLayoutPositions();
+        drawCanvasContext();
+    }
+};
 
 buildTreeStructure();
 handleDisplayResize();

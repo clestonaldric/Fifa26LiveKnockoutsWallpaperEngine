@@ -127,11 +127,12 @@ body, html {
     border-radius: 50%;
     display: block;
     transform: scale(1.05); /* Seals container boundaries to permanently block dark/brown subpixel bleeding */
+    mask-image: radial-gradient(white, black);
     -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 .bracket-node.loser {
-    background: transparent !important;
+    background: #080808 !important; /* Matches body background to mask the canvas line */
     box-shadow: none !important;
 }
 
