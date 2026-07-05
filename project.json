@@ -1,62 +1,70 @@
 {
-	"contentrating": "Everyone",
-	"description": "This interactive live wallpaper maps out the entire knockout stage in a beautiful, circular tree grid that automatically synchronizes with live tournament data.\n\nKey Features\nReal-Time API Sync: Automatically updates scores and team advancements throughout the tournament without needing any manual setup or API keys.\n\nInteractive Analytics Panel: Click on any active or completed match flag to slide open a sleek, glassmorphic stats sidebar displaying live Possession, Total Shots, Shots on Target, and Corners.\n\nLive Match Alerts: Ongoing games instantly trigger an electric blue breathing pulse animation to show you where the action is happening at a glance.\n\nDynamic Winner Tracks: Watch the grid pathways permanently light up with vibrant, glowing neon lines styled to match the primary flag color of the advancing team.\n\nAdded a breathing pulse animation feature for the cup and grid - play some music and try it out!\n\nCreated this based on a post of the world cup by @emiliosansolini on Instagram, do check him out :)",
-	"file": "index.html",
-	"general": {
-		"properties": {
-			"audioReactive": {
-				"index": 0,
-				"text": "Audio Reactive",
-				"order": 100,
-				"type": "bool",
-				"value": true
+	"contentrating" : "Everyone",
+	"description" : "This interactive live wallpaper maps out the entire knockout stage in a beautiful, circular tree grid that automatically synchronizes with live tournament data.\n\nKey Features\nReal-Time API Sync: Automatically updates scores and team advancements throughout the tournament without needing any manual setup or API keys.\n\nInteractive Analytics Panel: Click on any active or completed match flag to slide open a sleek, glassmorphic stats sidebar displaying live Possession, Total Shots, Shots on Target, and Corners.\n\nLive Match Alerts: Ongoing games instantly trigger an electric blue breathing pulse animation to show you where the action is happening at a glance.\n\nDynamic Winner Tracks: Watch the grid pathways permanently light up with vibrant, glowing neon lines styled to match the primary flag color of the advancing team.\n\nAdded a breathing pulse animation feature for the cup and grid - play some music and try it out!\n\nCreated this based on a post of the world cup by @emiliosansolini on Instagram, do check him out :)",
+	"file" : "index.html",
+	"general" : 
+	{
+		"properties" : 
+		{
+			"audioReactive" : 
+			{
+				"index" : 0,
+				"order" : 100,
+				"text" : "Audio Reactive",
+				"type" : "bool",
+				"value" : true
 			},
-			"glowIntensity": {
-				"index": 1,
-				"max": 4,
-				"min": 0,
-				"text": "Glow Intensity",
-				"order": 101,
-				"step": 0.01,
-				"type": "slider",
-				"value": 1
+			"glowIntensity" : 
+			{
+				"index" : 1,
+				"max" : 4,
+				"min" : 0,
+				"order" : 101,
+				"step" : 0.01,
+				"text" : "Glow Intensity",
+				"type" : "slider",
+				"value" : 1
 			},
-			"gridColor": {
-				"index": 2,
-				"text": "Grid Color",
-				"order": 102,
-				"type": "color",
-				"value": "212 175 55"
+			"gridColor" : 
+			{
+				"index" : 2,
+				"order" : 102,
+				"text" : "Grid Color",
+				"type" : "color",
+				"value" : "212 175 55"
 			},
-			"rotationSpeed": {
-				"index": 3,
-				"max": 0.005,
-				"min": 0.0001,
-				"text": "Rotation Speed",
-				"order": 103,
-				"step": 0.0001,
-				"type": "slider",
-				"value": 0.0012
+			"rotationSpeed" : 
+			{
+				"index" : 3,
+				"max" : 0.005,
+				"min" : 0.0001,
+				"order" : 103,
+				"step" : 0.0001,
+				"text" : "Rotation Speed",
+				"type" : "slider",
+				"value" : 0.0012
 			},
-			"schemecolor": {
-				"index": 5,
-				"name": "Background Color",
-				"order": 105,
-				"text": "ui_browse_properties_scheme_color",
-				"type": "color",
-				"value": "8 8 8"
+			"schemecolor" : 
+			{
+				"index" : 5,
+				"name" : "Background Color",
+				"order" : 105,
+				"text" : "ui_browse_properties_scheme_color",
+				"type" : "color",
+				"value" : "8 8 8"
 			},
-			"showCenterGlow": {
-				"index": 4,
-				"text": "Show Center Glow",
-				"order": 104,
-				"type": "bool",
-				"value": true
+			"showCenterGlow" : 
+			{
+				"index" : 4,
+				"order" : 104,
+				"text" : "Show Center Glow",
+				"type" : "bool",
+				"value" : true
 			}
 		},
-		"supportsaudioprocessing": true
+		"supportsaudioprocessing" : true
 	},
-	"title": "FIFA 26:Live Knockouts Revolve",
-	"type": "web",
-	"version": 0
+	"title" : "FIFA 26:Live Knockouts Revolve",
+	"type" : "web",
+	"version" : 0
 }

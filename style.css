@@ -58,14 +58,14 @@ body, html {
     z-index: 2;
 }
 
-/* Flag Node Container - FIXED: Enforces strict circular clip bounds and supports GPU translations */
+/* Flag Node Container */
 .bracket-node {
     position: absolute;
     top: 50%;                         
     left: 50%;                         
     width: 4.6vmin; 
     height: 4.6vmin; 
-    border-radius: 50%;                 /* FIXED: Restored to eradicate the square boxes bug */
+    border-radius: 50%;                 
     background: transparent !important; 
     border: 0 !important;               
     outline: none !important;
@@ -76,39 +76,37 @@ body, html {
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    /* Transform transition removed during active rotations to ensure crisp 60fps frame synchronization */
     transition: opacity 0.4s ease, box-shadow 0.4s ease;
     user-select: none;
+    -webkit-user-select: none;
     z-index: 5;
+    touch-action: none; /* Prevents browser gesture processing delays on touch inputs */
 }
 
-/* Clear out secondary declarations for root entries */
 .bracket-node.round-0 {
     border: 0 !important;
     border-color: transparent !important;
 }
 
-/* Dash boundaries for unpopulated tournament slots */
 .bracket-node.empty {
     border: 1px dashed rgba(212, 175, 55, 0.35) !important;
     background: rgba(20, 20, 20, 0.4) !important;
     color: rgba(255, 255, 255, 0.2);
 }
 
-/* Advanced Node Status: Shines with premium gold ring emissions */
 .bracket-node.advanced {
     box-shadow: 0 0 0 1.5px #d4af37, 0 0 12px rgba(212, 175, 55, 0.4) !important;
 }
 
-/* Centerpiece Trophy layout size rules */
+/* HARDENED DEPTH LAYER: Sits above standard nodes so they pass behind during rotation spins */
 .trophy-slot {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 10;
-    width: 12vmin; 
-    height: 12vmin; 
+    z-index: 60; 
+    width: 10.5vmin;  
+    height: 10.5vmin; 
     display: flex;
     align-items: center;
     justify-content: center;
@@ -122,20 +120,19 @@ body, html {
     filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.4));
 }
 
-/* Flag Image Assets - Scaled to 1.05 to overscan past anti-aliased container edges */
 .bracket-node img.flag-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
     display: block;
-    transform: scale(1.05); /* Seals container boundaries to permanently block dark/brown subpixel bleeding */
+    transform: scale(1.05); 
     mask-image: radial-gradient(white, black);
     -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 .bracket-node.loser {
-    background: #080808 !important; /* Matches body background to mask the canvas line */
+    background: #080808 !important; 
     box-shadow: none !important;
 }
 
@@ -146,7 +143,6 @@ body, html {
     transition: all 0.4s ease;
 }
 
-/* Restored Live Match Breathing Pulse Aura */
 @keyframes liveBreathing {
     0% { box-shadow: 0 0 0 1.5px #d4af37, 0 0 6px #d4af37; }
     50% { box-shadow: 0 0 0 2.5px #ffffff, 0 0 18px #d4af37; }
@@ -158,7 +154,6 @@ body, html {
     z-index: 20; 
 }
 
-/* Live Match Score Badges - FIXED: Extended outside node structures without encountering edge clipping */
 .live-score-badge {
     position: absolute;
     bottom: -8px;
@@ -175,26 +170,31 @@ body, html {
     white-space: nowrap;
 }
 
-/* ================= INTERACTIVE STATS PANEL SYSTEM ================= */
+/* INTERACTIVE STATS PANEL SYSTEM */
 .stats-panel {
     position: absolute;
     top: 0;
-    right: -360px; 
+    right: 0; /* Anchored to edge */
     width: 340px;
     height: 100%;
-    background: rgba(10, 10, 10, 0.75);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
+    background: rgba(10, 10, 10, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 100;
-    transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Shifts off-screen cleanly relative to its exact width bounds */
+    transform: translate3d(100%, 0, 0); 
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     padding: 40px 24px;
     color: #ffffff;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch;
+    will-change: transform;
 }
 
 .stats-panel.panel-open {
-    right: 0;
+    transform: translate3d(0, 0, 0); /* Slides smoothly into perfect view */
 }
 
 .close-panel-btn {
@@ -216,7 +216,7 @@ body, html {
 .stats-content {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: auto;
     margin-top: 20px;
 }
 
@@ -321,37 +321,32 @@ body, html {
     }
     .stats-panel {
         width: 100%; 
-        right: -100%; 
+        transform: translate3d(100%, 0, 0); 
         padding: 50px 20px;
     }
     .stats-panel.panel-open {
-        right: 0;
+        transform: translate3d(0, 0, 0);
     }
     .panel-score-display {
         font-size: 26px; 
     }
 }
 
-/* ================= PRODUCTION HITBOX OPTIMIZATIONS ================= */
-
-/* Build an ergonomic invisible interaction barrier over the rotating flag */
+/* ERGONOMIC CLICK HITBOX EXPANDER */
 .bracket-node::after {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    /* Enforces a safe 44px minimum touch target for fingers/mice, 
-       but clamps growth on large screens to avoid overlapping inner rounds */
     width: clamp(44px, 180%, 75px);
     height: clamp(44px, 180%, 75px);
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
-    z-index: 40; /* Sits completely on top of internal images and score numbers */
+    z-index: 40; 
 }
 
-/* Hard Pass-Through: Prevents internal children from breaking target calculations */
 .bracket-node img.flag-img,
 .bracket-node .live-score-badge {
     pointer-events: none !important; 
