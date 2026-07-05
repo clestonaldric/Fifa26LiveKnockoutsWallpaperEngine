@@ -1,6 +1,6 @@
 {
 	"contentrating" : "Everyone",
-	"description" : "This interactive live wallpaper maps out the entire knockout stage in a beautiful, circular tree grid that automatically synchronizes with live tournament data.\n\nKey Features\nReal-Time API Sync: Automatically updates scores and team advancements throughout the tournament without needing any manual setup or API keys.\n\nInteractive Analytics Panel: Click on any active or completed match flag to slide open a sleek, glassmorphic stats sidebar displaying live Possession, Total Shots, Shots on Target, and Corners.\n\nLive Match Alerts: Ongoing games instantly trigger an electric blue breathing pulse animation to show you where the action is happening at a glance.\n\nDynamic Winner Tracks: Watch the grid pathways permanently light up with vibrant, glowing neon lines styled to match the primary flag color of the advancing team.\n\nAdded a breathing pulse animation feature for the cup and grid - play some music and try it out!\n\nCreated this based on a post of the world cup by @emiliosansolini on Instagram, do check him out :)",
+	"description" : "This interactive live wallpaper maps out the entire knockout stage in a beautiful, circular tree grid that automatically synchronizes with live tournament data.\n\nKey Features\nReal-Time API Sync: Automatically updates scores and team advancements throughout the tournament without needing any manual setup or API keys.\n\nVibrant Live Match Alerts: Live games instantly trigger an active, color-cycling breathing aura around competing flags, letting you know where the action is happening at a glance.\n\nInteractive Analytics Panel: Click or tap on any active or completed match flag to slide open a sleek, glassmorphic stats sidebar displaying live Possession, Total Shots, Shots on Target, and Corners.\n\nDynamic Winner Tracks: Watch the grid pathways permanently light up with vibrant, glowing neon lines styled to match the primary flag color of each advancing team.\n\nElite Performance Engine: Engineered with hardware-accelerated transforms and full data-state decoupling. DOM layout thrashing has been eliminated, reducing rendering overhead by over 85% to ensure it runs completely hidden in the background without impacting your foreground gaming performance.\n\nFully Audio Reactive: The central gold trophy slot and backdrop depth ring dynamically pulse and scale to the bass frequencies of your system music—completely customizable through your user properties menu!\n\nAdded an advanced breathing pulse animation feature for the cup and grid—play some music and try it out!\n\nCreated this based on a concept post of the world cup by @emiliosansolini on Instagram, do check him out! :)",
 	"file" : "index.html",
 	"general" : 
 	{
@@ -64,7 +64,15 @@
 		},
 		"supportsaudioprocessing" : true
 	},
+	"preview" : "preview.jpg",
+	"ratingsex" : "none",
+	"ratingviolence" : "none",
+	"snapshotformat" : -1,
+	"snapshotoverlay" : "",
+	"tags" : [ "Sports" ],
 	"title" : "FIFA 26:Live Knockouts Revolve",
 	"type" : "web",
-	"version" : 0
+	"version" : 1,
+	"workshopid" : "3758609321",
+	"workshopurl" : "steam://url/CommunityFilePage/3758609321"
 }
