@@ -35,10 +35,12 @@
 			},
 			"rotationSpeed" : 
 			{
+				"fraction" : true,
 				"index" : 3,
 				"max" : 0.005,
 				"min" : 0.0001,
 				"order" : 103,
+				"precision" : 4,
 				"step" : 0.0001,
 				"text" : "Rotation Speed",
 				"type" : "slider",
@@ -73,6 +75,7 @@
 	"title" : "FIFA 26:Live Knockouts Revolve",
 	"type" : "web",
 	"version" : 1,
+	"visibility" : "public",
 	"workshopid" : "3758609321",
 	"workshopurl" : "steam://url/CommunityFilePage/3758609321"
 }
