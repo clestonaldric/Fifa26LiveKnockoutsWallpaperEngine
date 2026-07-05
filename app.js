@@ -28,7 +28,7 @@ const settings = {
     glowIntensity: 1.0,
     showCenterGlow: true,
     audioReactive: true,
-    gridColor: { r: 212, g: 175, b: 55 },
+    gridColor: { r: 255, g: 255, b: 255 },
     backgroundColor: { r: 8, g: 8, b: 8 },
     winnerLineBase: 2.0,
     nonWinnerAlphaBase: 0.45
@@ -39,7 +39,8 @@ function parseWallpaperColor(property) {
     const color = property.color || property.value || property;
     if (!color) return null;
     if (typeof color === 'string') {
-        const hex = color.replace('#', '').trim();
+        const cleaned = color.trim();
+        const hex = cleaned.startsWith('#') ? cleaned.slice(1) : cleaned;
         if (/^[0-9A-Fa-f]{6}$/.test(hex)) {
             return {
                 r: parseInt(hex.slice(0, 2), 16),
@@ -47,18 +48,44 @@ function parseWallpaperColor(property) {
                 b: parseInt(hex.slice(4, 6), 16)
             };
         }
-        const parts = color.split(/[^0-9]+/).filter(Boolean).map(Number);
+        // Support space-separated fractional values (Wallpaper Engine format "0.5 0.5 0.5")
+        const parts = cleaned.split(/[\s,;]+/).map(Number).filter(n => !isNaN(n));
         if (parts.length >= 3) {
-            return { r: parts[0], g: parts[1], b: parts[2] };
+            const isFractional = parts[0] <= 1 && parts[1] <= 1 && parts[2] <= 1 &&
+                                 (parts[0] > 0 || parts[1] > 0 || parts[2] > 0);
+            const scale = isFractional ? 255 : 1;
+            return {
+                r: clampColor(Math.round(parts[0] * scale)),
+                g: clampColor(Math.round(parts[1] * scale)),
+                b: clampColor(Math.round(parts[2] * scale))
+            };
         }
     }
     if (Array.isArray(color) && color.length >= 3) {
-        return { r: Number(color[0]), g: Number(color[1]), b: Number(color[2]) };
+        const isFractional = color[0] <= 1 && color[1] <= 1 && color[2] <= 1 &&
+                             (color[0] > 0 || color[1] > 0 || color[2] > 0);
+        const scale = isFractional ? 255 : 1;
+        return {
+            r: clampColor(Math.round(Number(color[0]) * scale)),
+            g: clampColor(Math.round(Number(color[1]) * scale)),
+            b: clampColor(Math.round(Number(color[2]) * scale))
+        };
     }
     if (typeof color === 'object' && color.r !== undefined && color.g !== undefined && color.b !== undefined) {
-        return { r: Number(color.r), g: Number(color.g), b: Number(color.b) };
+        return {
+            r: clampColor(Number(color.r)),
+            g: clampColor(Number(color.g)),
+            b: clampColor(Number(color.b))
+        };
     }
     return null;
+}
+
+function clampColor(value) {
+    if (Number.isFinite(value)) {
+        return Math.min(255, Math.max(0, Math.round(value)));
+    }
+    return 0;
 }
 
 // Audio Responsiveness and Intro Animation Lifecycle Controllers
@@ -167,14 +194,29 @@ async function fetchAndApplyLiveScores() {
     try {
         // Fetch real-time data directly from the live ESPN scoreboard endpoint
         const response = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260720');
+        if (!response.ok) {
+            console.warn('ESPN scoreboard request failed', response.status, response.statusText);
+            return;
+        }
         const data = await response.json();
-        if (!data.events) return;
+        if (!data || !Array.isArray(data.events)) return;
 
-        // Reset live-status flags across all nodes before processing fresh updates
+        const eventMap = new Map();
+        for (const evt of data.events) {
+            const comps = evt?.competitions?.[0]?.competitors;
+            if (!Array.isArray(comps) || comps.length < 2) continue;
+            const abbr0 = ESPN_TO_ISO[String(comps[0]?.team?.abbreviation || '').toUpperCase()];
+            const abbr1 = ESPN_TO_ISO[String(comps[1]?.team?.abbreviation || '').toUpperCase()];
+            if (!abbr0 || !abbr1) continue;
+            eventMap.set([abbr0, abbr1].sort().join('|'), evt);
+        }
+
+        // Reset live-status flags and loser state across all nodes before processing fresh updates
         for (let round = 0; round < TOTAL_ROUNDS; round++) {
             bracketTree[round].forEach(node => { 
                 node.isLive = false; 
                 node.matchDataRef = null; 
+                node.isLoser = false;
             });
         }
 
@@ -186,17 +228,11 @@ async function fetchAndApplyLiveScores() {
                 const child2 = bracketTree[round - 1][i * 2 + 1];
 
                 if (!child1.isEmpty && !child2.isEmpty) {
-                    const match = data.events.find(evt => {
-                        const comps = evt.competitions[0].competitors;
-                        if (!comps[0] || !comps[1]) return false;
-                        const t1 = ESPN_TO_ISO[comps[0].team.abbreviation];
-                        const t2 = ESPN_TO_ISO[comps[1].team.abbreviation];
-						return (t1 === child1.label && t2 === child2.label) || (t1 === child2.label && t2 === child1.label);
-                    });
-
+                    const matchKey = [child1.label, child2.label].sort().join('|');
+                    const match = eventMap.get(matchKey);
                     if (match) {
-                        const competitors = match.competitions[0].competitors;
-                        const matchState = match.status.type.state; 
+                        const competitors = match?.competitions?.[0]?.competitors || [];
+                        const matchState = match?.status?.type?.state; 
 
                         child1.matchDataRef = match;
                         child2.matchDataRef = match;
@@ -264,12 +300,19 @@ function syncLayoutPositions() {
             node.y = cachedCy + offsetY;
 
             let nodeDOM = document.getElementById(`node-${round}-${index}`);
-            if (!nodeDOM) {
-                nodeDOM = document.createElement('div');
-                nodeDOM.id = `node-${round}-${index}`;
-                nodeDOM.addEventListener('click', () => handleNodeClickEvent(nodeDOM, node));
-                container.appendChild(nodeDOM);
-            }
+if (!nodeDOM) {
+    nodeDOM = document.createElement('div');
+    nodeDOM.id = `node-${round}-${index}`;
+    
+    // Instantly fires on mouse-down/touch-start before the node can rotate away
+    nodeDOM.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleNodeClickEvent(nodeDOM, node);
+    });
+    
+    container.appendChild(nodeDOM);
+}
 
             let stateClass = 'empty';
             if (!node.isEmpty) stateClass = 'advanced';
@@ -320,13 +363,17 @@ function handleNodeClickEvent(element, node) {
 function updateStatsPanelUI(match) {
     if (!match) return;
 
-    const comp = match.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === 'home');
-    const away = comp.competitors.find(c => c.homeAway === 'away');
+    const comp = match?.competitions?.[0];
+    if (!comp) return;
+    const home = comp.competitors?.find(c => c.homeAway === 'home');
+    const away = comp.competitors?.find(c => c.homeAway === 'away');
+    const safeTeam = (team) => team || { team: { displayName: 'TBD', abbreviation: '' }, score: 0, statistics: [] };
+    const homeTeam = safeTeam(home);
+    const awayTeam = safeTeam(away);
     const stageName = comp.altGameNote || "FIFA World Cup";
     // 1. Get the current match state ("pre" = scheduled, "in" = live, "post" = finished)
-    const matchState = match.status.type.state;
-    let clockDisplay = match.status.type.detail;
+    const matchState = match?.status?.type?.state;
+    let clockDisplay = match?.status?.type?.detail || '';
 
     // 2. If the match hasn't started yet, convert ESPN's UTC string to local device time
     if (matchState === "pre" && match.date) {
@@ -348,49 +395,64 @@ function updateStatsPanelUI(match) {
         return statObj ? parseFloat(statObj.displayValue) : 0;
     };
 
-    const homePoss = getMetric(home, "possessionPct") || 50;
-    const awayPoss = getMetric(away, "possessionPct") || (100 - homePoss);
-    const homeShots = getMetric(home, "totalShots");
-    const awayShots = getMetric(away, "totalShots");
-    const homeSOG = getMetric(home, "shotsOnTarget");
-    const awaySOG = getMetric(away, "shotsOnTarget");
-    const homeCorners = getMetric(home, "wonCorners");
-    const awayCorners = getMetric(away, "wonCorners");
+    const homePoss = getMetric(homeTeam, "possessionPct") || 50;
+    const awayPoss = getMetric(awayTeam, "possessionPct") || (100 - homePoss);
+    const homeShots = getMetric(homeTeam, "totalShots");
+    const awayShots = getMetric(awayTeam, "totalShots");
+    const homeSOG = getMetric(homeTeam, "shotsOnTarget");
+    const awaySOG = getMetric(awayTeam, "shotsOnTarget");
+    const homeCorners = getMetric(homeTeam, "wonCorners");
+    const awayCorners = getMetric(awayTeam, "wonCorners");
+
+    const normalizeAbbr = (abbr) => String(abbr || '').toUpperCase();
+    const homeColor = FLAG_COLORS[ESPN_TO_ISO[normalizeAbbr(homeTeam.team.abbreviation)]] || '#ffffff';
+    const awayColor = FLAG_COLORS[ESPN_TO_ISO[normalizeAbbr(awayTeam.team.abbreviation)]] || '#ffffff';
 
     const calculateRatio = (v1, v2) => {
         if (v1 === 0 && v2 === 0) return 50;
         return (v1 / (v1 + v2)) * 100;
     };
 
-    const homeColor = FLAG_COLORS[ESPN_TO_ISO[home.team.abbreviation]] || '#ffffff';
-    const awayColor = FLAG_COLORS[ESPN_TO_ISO[away.team.abbreviation]] || '#ffffff';
-
     statsContent.innerHTML = `
         <div class="panel-header">
-            <div class="stage-title">${stageName}</div>
-            <div class="match-clock">${clockDisplay}</div>
+            <div class="stage-title">${escapeHtml(stageName)}</div>
+            <div class="match-clock">${escapeHtml(clockDisplay)}</div>
         </div>
         <div class="panel-scoreboard">
-            <div class="panel-team-name" style="color:${homeColor}">${home.team.displayName}</div>
-            <div class="panel-score-display">${home.score} : ${away.score}</div>
-            <div class="panel-team-name" style="color:${awayColor}">${away.team.displayName}</div>
+            <div class="panel-team-name" style="color:${homeColor}">${escapeHtml(homeTeam.team.displayName)}</div>
+            <div class="panel-score-display">${escapeHtml(homeTeam.score)} : ${escapeHtml(awayTeam.score)}</div>
+            <div class="panel-team-name" style="color:${awayColor}">${escapeHtml(awayTeam.team.displayName)}</div>
         </div>
-        ${renderStatBar("Possession", homePoss + "%", homePoss, awayPoss + "%", homeColor, awayColor)}
-        ${renderStatBar("Total Shots", homeShots, calculateRatio(homeShots, awayShots), awayShots, homeColor, awayColor)}
-        ${renderStatBar("Shots on Target", homeSOG, calculateRatio(homeSOG, awaySOG), awaySOG, homeColor, awayColor)}
-        ${renderStatBar("Corners Won", homeCorners, calculateRatio(homeCorners, awayCorners), awayCorners, homeColor, awayColor)}
+        ${renderStatBar("Possession", escapeHtml(homePoss + "%"), homePoss, escapeHtml(awayPoss + "%"), homeColor, awayColor)}
+        ${renderStatBar("Total Shots", escapeHtml(homeShots), calculateRatio(homeShots, awayShots), escapeHtml(awayShots), homeColor, awayColor)}
+        ${renderStatBar("Shots on Target", escapeHtml(homeSOG), calculateRatio(homeSOG, awaySOG), escapeHtml(awaySOG), homeColor, awayColor)}
+        ${renderStatBar("Corners Won", escapeHtml(homeCorners), calculateRatio(homeCorners, awayCorners), escapeHtml(awayCorners), homeColor, awayColor)}
     `;
 }
 
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => {
+        return ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char];
+    });
+}
+
 function renderStatBar(title, leftVal, ratio, rightVal, leftColor, rightColor) {
+    const normalizedRatio = Number.isFinite(ratio) ? Math.min(100, Math.max(0, ratio)) : 50;
+    const secondaryRatio = 100 - normalizedRatio;
     return `
         <div class="stat-row">
             <div class="stat-labels">
-                <span>${leftVal}</span> <span class="stat-title">${title}</span> <span>${rightVal}</span>
+                <span>${leftVal}</span> <span class="stat-title">${escapeHtml(title)}</span> <span>${rightVal}</span>
             </div>
             <div class="stat-bar-track">
-                <div class="stat-bar-fill" style="width: ${ratio}%; background: ${leftColor}"></div>
-                <div class="stat-bar-fill" style="width: ${100 - ratio}%; background: ${rightColor || 'rgba(255,255,255,0.08)'}"></div>
+                <div class="stat-bar-fill" style="width: ${normalizedRatio}%; background: ${leftColor}"></div>
+                <div class="stat-bar-fill" style="width: ${secondaryRatio}%; background: ${rightColor || 'rgba(255,255,255,0.08)'}"></div>
             </div>
         </div>
     `;
@@ -402,8 +464,8 @@ closePanelBtn.addEventListener('click', () => {
 });
 
 function drawCanvasContext() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
+    ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
+    const effectiveAudioBass = settings.audioReactive ? Math.min(1, Math.max(0, audioBass)) : 0;
 
     // Draw radial tracks between nodes with audio-driven glow (matches working version)
     for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
@@ -443,12 +505,19 @@ function drawCanvasContext() {
                         ctx.shadowColor = '#00bfff'; 
                         ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 12);
                     } else {
-                        // Gold-colored grid lines (non-winner)
-                        const gc = settings.gridColor;
-                        ctx.strokeStyle = `rgba(${gc.r}, ${gc.g}, ${gc.b}, ${settings.nonWinnerAlphaBase + effectiveAudioBass * 0.25 * settings.glowIntensity})`;
-                        ctx.lineWidth = 1.2 + (effectiveAudioBass * settings.glowIntensity * 0.9);
-                        ctx.shadowBlur = 0 + (effectiveAudioBass * settings.glowIntensity * 6);
-                        ctx.shadowColor = `rgba(${gc.r}, ${gc.g}, ${gc.b}, 0.9)`;
+                        const distanceFromCenter = (TOTAL_ROUNDS - 1) - round;
+                        const baseGrid = settings.gridColor;
+                        const gold = { r: 212, g: 175, b: 55 };
+                        const glowFade = Math.max(0, Math.min(1, (3 - distanceFromCenter) / 2));
+                        const blend = (valueA, valueB) => Math.round(valueA * glowFade + valueB * (1 - glowFade));
+                        const blendedR = blend(gold.r, baseGrid.r);
+                        const blendedG = blend(gold.g, baseGrid.g);
+                        const blendedB = blend(gold.b, baseGrid.b);
+                        const alpha = 0.12 + glowFade * 0.28 + effectiveAudioBass * 0.05;
+                        ctx.strokeStyle = `rgba(${blendedR}, ${blendedG}, ${blendedB}, ${Math.min(alpha, 0.35)})`;
+                        ctx.lineWidth = 1.0 + glowFade * 0.25 + (effectiveAudioBass * settings.glowIntensity * 0.65);
+                        ctx.shadowBlur = glowFade > 0 ? 2 + (effectiveAudioBass * 6) : 0;
+                        ctx.shadowColor = `rgba(212, 175, 55, ${0.15 + glowFade * 0.35})`;
                     }
 
             let currentLineProgress = 1;
@@ -491,7 +560,7 @@ function animateLoadLoop() {
 
 function masterDriverOrbitLoop() {
     if (!isLoadAnimating) {
-        globalRotation += ROTATION_SPEED;
+        globalRotation = (globalRotation + ROTATION_SPEED) % (Math.PI * 2);
     }
     syncLayoutPositions();
     if (!isAnimationLoopActive) {
@@ -523,7 +592,7 @@ function handleDisplayResize() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = container.clientWidth * dpr;
     canvas.height = container.clientHeight * dpr;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     
     cachedCx = container.clientWidth / 2;
     cachedCy = container.clientHeight / 2;
@@ -536,6 +605,7 @@ function handleDisplayResize() {
 // Wallpaper Engine audio listener integration (if available)
 if (window.wallpaperRegisterAudioListener) {
     window.wallpaperRegisterAudioListener((audioArray) => {
+        if (!Array.isArray(audioArray) || audioArray.length < 68) return;
         // compute bass energy
         const bassLeft = (audioArray[0] + audioArray[1] + audioArray[2] + audioArray[3]) / 4;
         const bassRight = (audioArray[64] + audioArray[65] + audioArray[66] + audioArray[67]) / 4;
@@ -546,7 +616,7 @@ if (window.wallpaperRegisterAudioListener) {
         if (centerGlow) {
             if (settings.showCenterGlow) {
                 centerGlow.style.display = '';
-                centerGlow.style.transform = `scale(${1 + effectiveAudioBass * 0.35 * settings.glowIntensity})`;
+                centerGlow.style.transform = `translate(-50%, -50%) scale(${1 + effectiveAudioBass * 0.35 * settings.glowIntensity})`;
                 centerGlow.style.opacity = 0.6 + effectiveAudioBass * 0.4 * settings.glowIntensity;
             } else {
                 centerGlow.style.display = 'none';
@@ -569,11 +639,17 @@ window.wallpaperPropertyListener = {
     applyUserProperties: function(properties) {
         if (!properties) return;
         if (properties.rotationSpeed && properties.rotationSpeed.value !== undefined) {
-            ROTATION_SPEED = parseFloat(properties.rotationSpeed.value);
-            settings.rotationSpeed = ROTATION_SPEED;
+            const parsedSpeed = Number(properties.rotationSpeed.value);
+            if (Number.isFinite(parsedSpeed)) {
+                ROTATION_SPEED = parsedSpeed;
+                settings.rotationSpeed = ROTATION_SPEED;
+            }
         }
         if (properties.glowIntensity && properties.glowIntensity.value !== undefined) {
-            settings.glowIntensity = parseFloat(properties.glowIntensity.value);
+            const parsedGlow = Number(properties.glowIntensity.value);
+            if (Number.isFinite(parsedGlow)) {
+                settings.glowIntensity = parsedGlow;
+            }
         }
         if (properties.showCenterGlow && properties.showCenterGlow.value !== undefined) {
             settings.showCenterGlow = !!properties.showCenterGlow.value;
