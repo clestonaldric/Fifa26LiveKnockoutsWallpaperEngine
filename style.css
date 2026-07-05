@@ -1,0 +1,329 @@
+/* Clean Reset Profile */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #080808;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Absolute window container to neutralize mobile browser navigation bar shifts */
+.wallpaper-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Ambient backdrop depth spotlight glow */
+.center-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 45vmin; 
+    height: 45vmin; 
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.03) 50%, rgba(0,0,0,0) 100%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+#bracketCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.nodes-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+}
+
+/* Flag Node Container - FIXED: Enforces strict circular clip bounds and supports GPU translations */
+.bracket-node {
+    position: absolute;
+    top: 50%;                         
+    left: 50%;                         
+    width: 4.6vmin; 
+    height: 4.6vmin; 
+    border-radius: 50%;                 /* FIXED: Restored to eradicate the square boxes bug */
+    background: transparent !important; 
+    border: 0 !important;               
+    outline: none !important;
+    color: #ffffff;
+    font-size: 1.1vmin; 
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    /* Transform transition removed during active rotations to ensure crisp 60fps frame synchronization */
+    transition: opacity 0.4s ease, box-shadow 0.4s ease;
+    user-select: none;
+    z-index: 5;
+}
+
+/* Clear out secondary declarations for root entries */
+.bracket-node.round-0 {
+    border: 0 !important;
+    border-color: transparent !important;
+}
+
+/* Dash boundaries for unpopulated tournament slots */
+.bracket-node.empty {
+    border: 1px dashed rgba(212, 175, 55, 0.35) !important;
+    background: rgba(20, 20, 20, 0.4) !important;
+    color: rgba(255, 255, 255, 0.2);
+}
+
+/* Advanced Node Status: Shines with premium gold ring emissions */
+.bracket-node.advanced {
+    box-shadow: 0 0 0 1.5px #d4af37, 0 0 12px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Centerpiece Trophy layout size rules */
+.trophy-slot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: 12vmin; 
+    height: 12vmin; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.trophy-slot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.4));
+}
+
+/* Flag Image Assets - Scaled to 1.05 to overscan past anti-aliased container edges */
+.bracket-node img.flag-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+    transform: scale(1.05); /* Seals container boundaries to permanently block dark/brown subpixel bleeding */
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+
+.bracket-node.loser {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.bracket-node.loser img.flag-img {
+    filter: grayscale(90%) brightness(50%);
+    opacity: 0.55;
+    transform: scale(1.0); 
+    transition: all 0.4s ease;
+}
+
+/* Restored Live Match Breathing Pulse Aura */
+@keyframes liveBreathing {
+    0% { box-shadow: 0 0 0 1.5px #d4af37, 0 0 6px #d4af37; }
+    50% { box-shadow: 0 0 0 2.5px #ffffff, 0 0 18px #d4af37; }
+    100% { box-shadow: 0 0 0 1.5px #d4af37, 0 0 6px #d4af37; }
+}
+
+.bracket-node.live-pulse {
+    animation: liveBreathing 2s infinite ease-in-out;
+    z-index: 20; 
+}
+
+/* Live Match Score Badges - FIXED: Extended outside node structures without encountering edge clipping */
+.live-score-badge {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #d4af37;
+    color: #080808;
+    font-size: 1.1vmin; 
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 900;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+    z-index: 30;
+    white-space: nowrap;
+}
+
+/* ================= INTERACTIVE STATS PANEL SYSTEM ================= */
+.stats-panel {
+    position: absolute;
+    top: 0;
+    right: -360px; 
+    width: 340px;
+    height: 100%;
+    background: rgba(10, 10, 10, 0.75);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 100;
+    transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 40px 24px;
+    color: #ffffff;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.stats-panel.panel-open {
+    right: 0;
+}
+
+.close-panel-btn {
+    position: absolute;
+    top: 15px;
+    left: 20px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 32px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.close-panel-btn:hover {
+    color: #ff3b30;
+}
+
+.stats-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-top: 20px;
+}
+
+.panel-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.panel-header .stage-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #ffcc00;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+
+.panel-header .match-clock {
+    font-size: 13px;
+    background: rgba(212, 175, 55, 0.15);
+    color: #d4af37;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-top: 5px;
+    font-weight: 700;
+}
+
+.panel-scoreboard {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.panel-team-name {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.panel-score-display {
+    font-size: 32px;
+    font-weight: 800;
+    padding: 0 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-row {
+    margin-bottom: 22px;
+}
+
+.stat-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.stat-bar-track {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    display: flex;
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    height: 100%;
+    transition: width 0.6s cubic-bezier(0.1, 1, 0.1, 1);
+}
+
+.bracket-node.selected-view {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 16px #ffffff, 0 4px 12px rgba(0,0,0,0.8) !important;
+    z-index: 50;
+}
+
+/* Mobile Screen Responsive Adaptations */
+@media (max-width: 480px) {
+    .bracket-node {
+        width: 4.2vmin; 
+        height: 4.2vmin;
+    }
+    .bracket-node img.flag-img {
+        transform: scale(1.07); 
+    }
+    .live-score-badge {
+        font-size: 1.2vmin;
+        bottom: -6px;
+    }
+    .trophy-slot {
+        width: 9.5vmin;
+        height: 9.5vmin;
+    }
+    .center-glow {
+        width: 40vmin;
+        height: 40vmin;
+    }
+    .stats-panel {
+        width: 100%; 
+        right: -100%; 
+        padding: 50px 20px;
+    }
+    .stats-panel.panel-open {
+        right: 0;
+    }
+    .panel-score-display {
+        font-size: 26px; 
+    }
+}

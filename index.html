@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Circular Tournament Bracket Wallpaper</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="wallpaper-container">
+        <div class="center-glow"></div>
+
+        <canvas id="bracketCanvas"></canvas>
+
+        <div id="nodesOverlay" class="nodes-overlay"></div>
+
+        <div id="centerTrophy" class="trophy-slot">
+            <img src="assets/fifa-trophy.png" alt="FIFA World Cup Trophy">
+        </div>
+        
+        <div id="statsPanel" class="stats-panel">
+            <button id="closePanelBtn" class="close-panel-btn">&times;</button>
+            <div id="statsContent" class="stats-content"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
