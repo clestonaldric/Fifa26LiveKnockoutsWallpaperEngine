@@ -527,10 +527,20 @@ function drawCanvasContext() {
                 ctx.shadowColor = teamColor;
                 ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
             } else if (node.isLive) {
-                ctx.strokeStyle = '#00bfff'; 
-                ctx.lineWidth = 2.5 + (effectiveAudioBass * settings.glowIntensity * 4);
-                ctx.shadowColor = '#00bfff'; 
-                ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 12);
+				const liveGradient = ctx.createRadialGradient(
+						cachedCx, cachedCy, currentRadius,
+						cachedCx, cachedCy, nextRadius
+					);
+					
+					liveGradient.addColorStop(0, '#00f5ff');   
+					liveGradient.addColorStop(0.5, '#ff007f'); 
+					liveGradient.addColorStop(1, '#ffcc00');   
+					
+					ctx.strokeStyle = liveGradient; 
+					ctx.lineWidth = 3.0 + (effectiveAudioBass * settings.glowIntensity * 4);
+					
+					ctx.shadowColor = '#ff007f'; 
+					ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12);
             } else {
                 const distanceFromCenter = (TOTAL_ROUNDS - 1) - round;
                 const baseGrid = settings.gridColor;

@@ -144,9 +144,18 @@ body, html {
 }
 
 @keyframes liveBreathing {
-    0% { box-shadow: 0 0 0 1.5px #d4af37, 0 0 6px #d4af37; }
-    50% { box-shadow: 0 0 0 2.5px #ffffff, 0 0 18px #d4af37; }
-    100% { box-shadow: 0 0 0 1.5px #d4af37, 0 0 6px #d4af37; }
+    0% { 
+        box-shadow: 0 0 0 1.5px #00f5ff, 0 0 8px rgba(0, 245, 255, 0.6); 
+    }
+    33% { 
+        box-shadow: 0 0 0 2.5px #ff007f, 0 0 18px rgba(255, 0, 127, 0.8); 
+    }
+    66% { 
+        box-shadow: 0 0 0 2.0px #ffcc00, 0 0 14px rgba(255, 204, 0, 0.7); 
+    }
+    100% { 
+        box-shadow: 0 0 0 1.5px #00f5ff, 0 0 8px rgba(0, 245, 255, 0.6); 
+    }
 }
 
 .bracket-node.live-pulse {
@@ -159,8 +168,9 @@ body, html {
     bottom: -8px;
     left: 50%;
     transform: translateX(-50%);
-    background: #d4af37;
-    color: #080808;
+    /* Swapped to a premium FIFA branding gradient */
+    background: linear-gradient(135deg, #00f5ff, #ff007f);
+    color: #ffffff; /* Swapped to pure white for high text contrast */
     font-size: 1.1vmin; 
     padding: 2px 6px;
     border-radius: 8px;
