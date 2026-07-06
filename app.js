@@ -746,7 +746,6 @@ function updateStatsPanelUI(match) {
         return (v1 / (v1 + v2)) * 100;
     };
 
-    // Note: Broadcast section container completely removed per your request
     let baseHTML = `
         <div class="panel-header">
             <div class="stage-title">${escapeHtml(stageName)}</div>
@@ -772,7 +771,7 @@ function updateStatsPanelUI(match) {
         ${renderStatBar("Fouls Committed", escapeHtml(homeFouls), calculateRatio(homeFouls, awayFouls), escapeHtml(awayFouls), homeColor, awayColor)}
     `;
 
-// Chronological Match Timeline Event Log Layer
+    // Chronological Match Timeline Event Log Layer
     const timelineDetails = comp.details || [];
     if (timelineDetails.length > 0) {
         baseHTML += `
@@ -876,7 +875,7 @@ if (tabMatchStats && tabLeaders) {
 }
 
 function renderLeadersDashboard() {
-	const avgAttendance = globalTournamentStats.attendance > 0 ? Math.round(globalTournamentStats.attendance / 32) : 0;
+    const avgAttendance = globalTournamentStats.attendance > 0 ? Math.round(globalTournamentStats.attendance / 32) : 0;
     let dashboardHTML = `
         <div class="stats-insights-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px;">
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
@@ -901,13 +900,16 @@ function renderLeadersDashboard() {
             <div style="font-size: 9px; text-transform: uppercase; color: #d4af37; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 4px;">Highest Scoring Match</div>
             <div style="font-size: 13px; font-weight: 700; color: #ffffff;">${escapeHtml(globalTournamentStats.highestScoringMatch)}</div>
         </div>
+    `;
 
+    // Package leaders list structure inside correct variable tracking
+    let leadersListsHTML = `
         <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Golden Boot (Goals)</div>
     `;
 
     liveScorers.forEach(p => {
-        dashboardHTML += `
+        leadersListsHTML += `
             <div class="leader-row">
                 <div class="leader-rank">#${p.rank}</div>
                 <div class="leader-name">${escapeHtml(p.name)}</div>
@@ -917,14 +919,14 @@ function renderLeadersDashboard() {
         `;
     });
 
-    dashboardHTML += `
+    leadersListsHTML += `
         </div>
         <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Top Playmaking Teams (Assists)</div>
     `;
 
     liveAssistsTeams.forEach(t => {
-        dashboardHTML += `
+        leadersListsHTML += `
             <div class="leader-row">
                 <div class="leader-rank">#${t.rank}</div>
                 <div class="leader-name">${escapeHtml(t.name)}</div>
@@ -934,15 +936,14 @@ function renderLeadersDashboard() {
         `;
     });
 
-    dashboardHTML += `
+    leadersListsHTML += `
         </div>
-        <!-- Playmaking Creativity (Key Passes Leaderboard) -->
         <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Advanced Creativity (Key Passes)</div>
     `;
 
     liveKeyPassesTeams.forEach(t => {
-        dashboardHTML += `
+        leadersListsHTML += `
             <div class="leader-row">
                 <div class="leader-rank">#${t.rank}</div>
                 <div class="leader-name">${escapeHtml(t.name)}</div>
@@ -952,14 +953,14 @@ function renderLeadersDashboard() {
         `;
     });
 
-    dashboardHTML += `
+    leadersListsHTML += `
         </div>
-        <div class="leaders-section">
+        <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Aggression Index (Cards Weight)</div>
     `;
 
     liveDirtyTeams.forEach(t => {
-        dashboardHTML += `
+        leadersListsHTML += `
             <div class="leader-row">
                 <div class="leader-rank">#${t.rank}</div>
                 <div class="leader-name">${escapeHtml(t.name)}</div>
@@ -969,7 +970,17 @@ function renderLeadersDashboard() {
         `;
     });
 
-    dashboardHTML += `</div>`;
+    leadersListsHTML += `</div>`;
+
+    // Inject compiled nodes into viewport dynamic scroll frame layout
+    dashboardHTML += `
+        <div class="timeline-scroll-axis" style="height: calc(100vh - 290px); max-height: none;">
+            <div class="premium-scroller" style="animation-duration: 45s;">
+                ${leadersListsHTML}
+                ${leadersListsHTML}
+            </div>
+        </div>
+    `;
     leadersContentEl.innerHTML = dashboardHTML;
 }
 
@@ -1208,6 +1219,29 @@ function computeLiveDisciplinaryTeams(events) {
 
 function drawCanvasContext() {
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
+
+    // === VISUAL UPGRADE: SCI-FI HUD MATRIX BACKDROP ===
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0; 
+    
+    [43.5, 34.0, 25.0, 16.5].forEach((proportion, i) => {
+        const radius = (proportion / 100) * cachedBaseRadius;
+        
+        ctx.strokeStyle = `rgba(${settings.gridColor.r}, ${settings.gridColor.g}, ${settings.gridColor.b}, 0.025)`;
+        ctx.beginPath();
+        ctx.arc(cachedCx, cachedCy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(212, 175, 55, ${0.04 + (settings.audioReactive ? audioBass * 0.04 : 0)})`;
+        ctx.setLineDash([4, i * 15 + 20]);
+        ctx.lineDashOffset = (i % 2 === 0 ? globalRotation : -globalRotation) * radius * 0.5;
+        ctx.beginPath();
+        ctx.arc(cachedCx, cachedCy, radius + 4, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+    ctx.restore();
+
     const effectiveAudioBass = settings.audioReactive ? Math.min(1, Math.max(0, audioBass)) : 0;
 
     for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
@@ -1386,11 +1420,17 @@ function masterDriverOrbitLoop() {
     if (isDragging) {
         // Position bound to pointer coordinates via listeners
     } else {
+        // === VISUAL UPGRADE: AUDIO KINETIC INERTIA ===
+        let activeRotationSpeed = ROTATION_SPEED;
+        if (settings.audioReactive && audioBass > 0.4) {
+            activeRotationSpeed += (audioBass * 0.0018); 
+        }
+
         if (Math.abs(angularVelocity) > 0.00005) {
             globalRotation += angularVelocity * 16.67;
             angularVelocity *= 0.96;
         } else {
-            globalRotation = (globalRotation + ROTATION_SPEED) % (Math.PI * 2);
+            globalRotation = (globalRotation + activeRotationSpeed) % (Math.PI * 2);
         }
     }
 
@@ -1451,7 +1491,8 @@ if (window.wallpaperRegisterAudioListener) {
         audioBass = (bassLeft + bassRight) / 2;
         const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
 
-        if (settings.audioReactive && audioBass > 0.82) {
+        // Shockwave sensitivity optimized from 0.82 to 0.60
+        if (settings.audioReactive && audioBass > 0.60) {
             if (shockwaves.length === 0 || shockwaves[shockwaves.length - 1].radius > (cachedBaseRadius * 0.12)) {
                 shockwaves.push({
                     radius: cachedBaseRadius * 0.04,

@@ -165,19 +165,22 @@ body, html {
     transition: all 0.4s ease;
 }
 
+/* === VISUAL UPGRADE: NEON CHROMATIC SHIMMER === */
 @keyframes liveBreathing {
     0% { 
-        box-shadow: 0 0 0 1.5px #00f5ff, 0 0 8px rgba(0, 245, 255, 0.6); 
+        box-shadow: 0 0 0 2px #00f5ff, 0 0 15px rgba(0, 245, 255, 0.5), inset 0 0 8px rgba(0, 245, 255, 0.3); 
     }
-    33% { 
-        box-shadow: 0 0 0 2.5px #ff007f, 0 0 18px rgba(255, 0, 127, 0.8); 
-    }
-    66% { 
-        box-shadow: 0 0 0 2.0px #ffcc00, 0 0 14px rgba(255, 204, 0, 0.7); 
+    50% { 
+        box-shadow: 0 0 0 3px #ff007f, 0 0 25px rgba(255, 0, 127, 0.7), inset 0 0 12px rgba(255, 0, 127, 0.4); 
     }
     100% { 
-        box-shadow: 0 0 0 1.5px #00f5ff, 0 0 8px rgba(0, 245, 255, 0.6); 
+        box-shadow: 0 0 0 2px #00f5ff, 0 0 15px rgba(0, 245, 255, 0.5), inset 0 0 8px rgba(0, 245, 255, 0.3); 
     }
+}
+
+@keyframes badgeShimmer {
+    0% { border-color: #00f5ff; box-shadow: 0 0 8px rgba(0, 245, 255, 0.3); }
+    100% { border-color: #ff007f; box-shadow: 0 0 14px rgba(255, 0, 127, 0.5); }
 }
 
 .bracket-node.live-pulse {
@@ -185,43 +188,61 @@ body, html {
     z-index: 20; 
 }
 
-/* Premium Glassmorphic Broadcast Badge UI */
+/* Upgraded Live Broadcast Badge: Glowing Cyan HUD Box with Clear Numbers */
 .live-score-badge {
     position: absolute;
-    bottom: -9px;
+    bottom: -10px;
     left: 50%;
     transform: translateX(-50%);
     
-    /* Translucent frosted chassis framework */
-    background: rgba(12, 12, 12, 0.65) !important;
-    backdrop-filter: blur(6px) saturate(160%);
-    -webkit-backdrop-filter: blur(6px) saturate(160%);
+    /* Solid dark background to isolate the text from the underlying spinning flags */
+    background: rgba(10, 10, 15, 0.95) !important;
     
-    /* Fused structural border styling */
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    color: #ffffff; 
-    font-size: 1.1vmin; 
-    padding: 3px 8px;
-    border-radius: 6px;
+    /* Vibrant glowing neon-blue border */
+    border: 1px solid #00f5ff !important;
+    
+    /* Crystal clear solid text (No glowing text shadow to cause blur) */
+    color: #ffffff !important; 
+    font-size: 1.2vmin; 
+    padding: 3px 10px;
+    border-radius: 4px;
     font-weight: 900;
     
-    /* Multi-layered shadows: deep outer drop shadow + subtle interior glass glare */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5), 
-                inset 0 1px 1px rgba(255,255,255,0.2);
-                
+    /* Sharp drop shadow *behind* the numbers to make them pop out cleanly */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9) !important; 
+    
+    /* Kinetic Neon Cyber box aura effect */
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.4), 0 4px 8px rgba(0, 0, 0, 0.7);
     z-index: 30;
     white-space: nowrap;
-    
-    /* Tabular numbers lock element sizing to prevent layout jitter on active scoring changes */
     font-variant-numeric: tabular-nums; 
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
+    
+    /* A smooth ambient pulsing loop that only affects the outer box aura */
+    animation: liveBoxPulse 2.5s infinite ease-in-out;
+}
+
+/* Smooth breathing animation for the outer cyan box aura */
+@keyframes liveBoxPulse {
+    0% { 
+        box-shadow: 0 0 8px rgba(0, 245, 255, 0.4), 0 4px 8px rgba(0, 0, 0, 0.7);
+        border-color: #00f5ff;
+    }
+    50% { 
+        box-shadow: 0 0 18px rgba(0, 245, 255, 0.8), 0 4px 8px rgba(0, 0, 0, 0.7);
+        border-color: #00f5ff;
+    }
+    100% { 
+        box-shadow: 0 0 8px rgba(0, 245, 255, 0.4), 0 4px 8px rgba(0, 0, 0, 0.7);
+        border-color: #00f5ff;
+    }
 }
 
 /* INTERACTIVE STATS PANEL SYSTEM */
 .stats-panel {
     position: absolute;
     top: 0;
-    right: 0; /* Anchored to edge */
+    right: 0; 
     width: 340px;
     height: 100%;
     background: rgba(10, 10, 10, 0.9);
@@ -229,13 +250,11 @@ body, html {
     -webkit-backdrop-filter: blur(20px);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 100;
-    /* Shifts off-screen cleanly relative to its exact width bounds */
     transform: translate3d(100%, 0, 0); 
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     padding: 40px 24px;
     color: #ffffff;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
-/* Scroll Behavior Fixes */
     overflow-y: auto; 
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain; 
@@ -244,7 +263,7 @@ body, html {
 }
 
 .stats-panel.panel-open {
-    transform: translate3d(0, 0, 0); /* Slides smoothly into perfect view */
+    transform: translate3d(0, 0, 0); 
 }
 
 .close-panel-btn {
@@ -506,7 +525,6 @@ body, html {
     font-variant-numeric: tabular-nums;
 }
 
-/* Add this to style.css to make your summary row pop */
 .stats-insights-grid > div {
     background: rgba(12, 12, 12, 0.6) !important;
     backdrop-filter: blur(8px) saturate(140%);
@@ -536,12 +554,11 @@ body, html {
     gap: 6px;
 }
 
-/* Optional: Pause the scroll when the user hovers over it to read */
 .premium-scroller:hover {
     animation-play-state: paused;
 }
 
 @keyframes autoScroll {
     0% { transform: translateY(0); }
-    100% { transform: translateY(-50%); } /* Adjust if content is very long */
+    100% { transform: translateY(-50%); } 
 }
