@@ -27,6 +27,15 @@ let shockwaves = [];
 let currentlySelectedMatch = null; // FEATURE 1: Tracks active card reference for countdowns
 let countdownFrameCounter = 0;     //  Low-overhead interval throttle
 
+// FEATURE: Kinetic Momentum Wheel States
+let isDragging = false;
+let hasDraggedSignificant = false;
+let dragStartAngle = 0;
+let dragStartRotation = 0;
+let lastPointerAngle = 0;
+let lastPointerTime = 0;
+let angularVelocity = 0; // Tracks rotation speed in radians per millisecond
+
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
     rotationSpeed: ROTATION_SPEED,
@@ -89,6 +98,17 @@ function clampColor(value) {
         return Math.min(255, Math.max(0, Math.round(value)));
     }
     return 0;
+}
+
+// CINEMATIC LOADING EASING ENGINES
+function easeOutCubic(x) {
+    return 1 - Math.pow(1 - x, 3);
+}
+
+function easeOutBack(x) {
+    const c1 = 1.15; // Controls the elastic spring overshoot amount
+    const c3 = c1 + 1;
+    return x === 0 ? 0 : x === 1 ? 1 : 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
 }
 
 let audioBass = 0;
@@ -185,7 +205,8 @@ function buildTreeStructure() {
 }
 
 function getRoundProgress(round) {
-    const roundDuration = 1 / (TOTAL_ROUNDS - 1);
+    // Spreads duration intervals evenly across the absolute total round depth
+    const roundDuration = 1 / TOTAL_ROUNDS; 
     const startPct = round * roundDuration;
     const progress = (loadProgress - startPct) / roundDuration;
     return Math.max(0, Math.min(1, progress));
@@ -200,11 +221,23 @@ function refreshNodeDOMStructures() {
                 nodeDOM.id = `node-${round}-${index}`;
                 
                 // Interaction Layer
-                nodeDOM.addEventListener('pointerdown', (event) => {
-                    event.preventDefault(); 
-                    event.stopPropagation();
-                    handleNodeClickEvent(nodeDOM, node);
-                });
+// Interaction Layer (Updated for Click-vs-Drag suppression)
+nodeDOM.addEventListener('pointerdown', (event) => {
+    // Only capture primary pointer clicks
+    if (event.button !== 0) return;
+    
+    // Allow the main overlay container to intercept coordinates for physics tracking
+    hasDraggedSignificant = false; 
+    
+    const clickTrackerUp = (upEvent) => {
+        window.removeEventListener('pointerup', clickTrackerUp);
+        // If the pointer did not transition into a significant drag throw, process click
+        if (!hasDraggedSignificant) {
+            handleNodeClickEvent(nodeDOM, node);
+        }
+    };
+    window.addEventListener('pointerup', clickTrackerUp);
+});
 
                 // FIXED: Hover listeners moved inside the block where node and nodeDOM exist
                 nodeDOM.addEventListener('pointerenter', () => { 
@@ -378,6 +411,7 @@ async function fetchAndApplyLiveScores() {
 function syncLayoutPositions() {
     for (let round = 0; round < TOTAL_ROUNDS; round++) {
         const radiusPx = (RADII_PROPORTIONS[round] / 100) * cachedBaseRadius;
+        const roundProg = getRoundProgress(round);
         
         bracketTree[round].forEach((node, index) => {
             let finalAngle = node.angle + globalRotation;
@@ -390,15 +424,25 @@ function syncLayoutPositions() {
             const nodeDOM = document.getElementById(`node-${round}-${index}`);
             if (nodeDOM) {
                 let transformString = `translate3d(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px), 0)`;
+                
                 if (nodeDOM.classList.contains('selected-view')) {
                     transformString += ` scale(1.12)`;
-                } else if (round > 0) {
-                    let currentRingOpacity = getRoundProgress(round - 1);
-                    nodeDOM.style.opacity = currentRingOpacity;
-                    transformString += ` scale(${0.7 + currentRingOpacity * 0.3})`;
+                } else if (isLoadAnimating) {
+                    // FEATURE: Sequential Clockwise Stagger Matrix
+                    // Delays nodes based on their positions around the wheel ring
+                    const angularStaggerDelay = (index / bracketTree[round].length) * 0.22;
+                    const throttledNodeProg = Math.max(0, Math.min(1, (roundProg - angularStaggerDelay) / (1 - angularStaggerDelay)));
+                    
+                    // Route values through premium easing formulas
+                    const elasticScale = easeOutBack(throttledNodeProg);
+                    const fluidOpacity = easeOutCubic(throttledNodeProg);
+                    
+                    nodeDOM.style.opacity = fluidOpacity;
+                    transformString += ` scale(${0.1 + elasticScale * 0.9})`;
                 } else {
                     nodeDOM.style.opacity = 1;
                 }
+                
                 nodeDOM.style.transform = transformString;
             }
         });
@@ -801,21 +845,33 @@ function animateLoadLoop() {
         masterDriverOrbitLoop(); 
         return; 
     }
-    loadProgress += 0.004; 
+    // Changed from 0.004 to 0.0055 for a crisper, high-energy opening sequence
+    loadProgress += 0.0055; 
     masterDriverOrbitLoop();
 }
 
 function masterDriverOrbitLoop() {
-    if (!isLoadAnimating) {
-        globalRotation = (globalRotation + ROTATION_SPEED) % (Math.PI * 2);
+    // 1. Kinetic Momentum Physics Calculation Engine
+    if (isDragging) {
+        // Position is completely bound to user tracking coordinates via event hooks
+    } else {
+        if (Math.abs(angularVelocity) > 0.00005) {
+            // Smoothly progress rotation position using momentum calculations (~16.67ms frames)
+            globalRotation += angularVelocity * 16.67;
+            
+            // Friction/Damping coefficient. 0.96 means the wheel loses 4% speed per frame
+            angularVelocity *= 0.96; 
+        } else {
+            // When kinetic velocity completely de-energizes, seamlessly return to ambient rotation
+            globalRotation = (globalRotation + ROTATION_SPEED) % (Math.PI * 2);
+        }
     }
     
     syncLayoutPositions();
 	
-	// FEATURE 1: Continuous passive calculation driver engine
     if (currentlySelectedMatch && !isLoadAnimating) {
         countdownFrameCounter++;
-        if (countdownFrameCounter >= 60) { // Throttled to execute exactly once per second at 60fps
+        if (countdownFrameCounter >= 60) { 
             countdownFrameCounter = 0;
             updateLiveCountdowns();
         }
@@ -955,6 +1011,73 @@ function unifiedDeviceViewportSync() {
         handleDisplayResize();
     }, 80);
 }
+
+// ==========================================================================
+// KINETIC MOMENTUM WHEEL: COORDINATE TRACKING PIPELINE
+// ==========================================================================
+const getPointerAngle = (clientX, clientY) => {
+    return Math.atan2(clientY - cachedCy, clientX - cachedCx);
+};
+
+container.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    isDragging = true;
+    hasDraggedSignificant = false;
+    
+    const currentAngle = getPointerAngle(e.clientX, e.clientY);
+    dragStartAngle = currentAngle;
+    dragStartRotation = globalRotation;
+    
+    lastPointerAngle = currentAngle;
+    lastPointerTime = performance.now();
+    angularVelocity = 0; // Freeze any existing spinning motion on grab
+});
+
+window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+
+    const currentAngle = getPointerAngle(e.clientX, e.clientY);
+    const now = performance.now();
+    const deltaTime = now - lastPointerTime;
+
+    // Determine raw positional shift arc
+    let deltaAngle = currentAngle - lastPointerAngle;
+    
+    // Correct angle wrapping thresholds across the Math.PI boundary limits (-180 to +180 deg)
+    if (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+    if (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+
+    // Track total accumulated movement arc to distinguish drags from clicks
+    if (Math.abs(currentAngle - dragStartAngle) > 0.03) {
+        hasDraggedSignificant = true;
+    }
+
+    // Apply tracking adjustments directly to rendering properties
+    globalRotation += deltaAngle;
+
+    // Calculate rotational force velocity vector (radians per millisecond)
+    if (deltaTime > 0) {
+        angularVelocity = deltaAngle / deltaTime;
+    }
+
+    lastPointerAngle = currentAngle;
+    lastPointerTime = now;
+});
+
+window.addEventListener('pointerup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    // If the user holds the pointer completely still before releasing, kill the spin force
+    if (performance.now() - lastPointerTime > 80) {
+        angularVelocity = 0;
+    }
+});
+
+window.addEventListener('pointercancel', () => {
+    isDragging = false;
+    angularVelocity = 0;
+});
 
 // FIXED: Removed duplicate standalone listener that was causing competing callbacks
 window.addEventListener('resize', unifiedDeviceViewportSync);
