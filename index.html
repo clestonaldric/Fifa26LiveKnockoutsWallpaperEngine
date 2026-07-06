@@ -19,10 +19,17 @@
             <img src="assets/fifa-trophy.png" alt="FIFA World Cup Trophy">
         </div>
         
-        <div id="statsPanel" class="stats-panel">
-            <button id="closePanelBtn" class="close-panel-btn">&times;</button>
-            <div id="statsContent" class="stats-content"></div>
-        </div>
+<div id="statsPanel" class="stats-panel">
+    <button id="closePanelBtn" class="close-panel-btn">&times;</button>
+    
+    <div class="panel-toggle-tabs">
+        <button id="tabMatchStats" class="toggle-tab active">Match Stats</button>
+        <button id="tabLeaders" class="toggle-tab">Top Stats</button>
+    </div>
+
+    <div id="statsContent" class="stats-content"></div>
+    <div id="leadersContent" class="leaders-content hidden"></div>
+</div>
     </div>
 
     <script src="app.js"></script>

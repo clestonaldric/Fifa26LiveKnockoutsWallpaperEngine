@@ -398,3 +398,107 @@ body, html {
 .bracket-node .live-score-badge {
     pointer-events: none !important; 
 }
+
+/* ==========================================================================
+   FEATURE 4: TOURNAMENT LEADERS UI SPECIFICATIONS
+   ========================================================================== */
+
+.panel-toggle-tabs {
+    display: flex;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 25px;
+    margin-top: 15px;
+}
+
+.toggle-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 0;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.toggle-tab.active {
+    background: rgba(212, 175, 55, 0.15);
+    color: #d4af37;
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.leaders-content.hidden {
+    display: none;
+}
+
+.leaders-section {
+    margin-bottom: 25px;
+}
+
+.leaders-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #ffcc00;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 6px;
+}
+
+.leader-row {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.leader-row:hover {
+    background: rgba(212, 175, 55, 0.05);
+    border-color: rgba(212, 175, 55, 0.2);
+}
+
+.leader-rank {
+    font-size: 11px;
+    font-weight: 800;
+    color: #d4af37;
+    width: 25px;
+}
+
+.leader-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+}
+
+.leader-team {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+    margin-right: 15px;
+    font-weight: 700;
+}
+
+.leader-tally {
+    font-size: 14px;
+    font-weight: 800;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+}

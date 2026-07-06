@@ -23,7 +23,9 @@ let ROTATION_SPEED = 0.0012;
 
 // Global State Trackers
 let hoveredTeam = null;
-let shockwaves = []; // ADDED: Tracks concentric sonar ripples
+let shockwaves = [];
+let currentlySelectedMatch = null; // FEATURE 1: Tracks active card reference for countdowns
+let countdownFrameCounter = 0;     //  Low-overhead interval throttle
 
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
@@ -407,8 +409,41 @@ function handleNodeClickEvent(element, node) {
     if (!node.matchDataRef) return; 
     document.querySelectorAll('.bracket-node').forEach(n => n.classList.remove('selected-view'));
     element.classList.add('selected-view');
+    
+    currentlySelectedMatch = node.matchDataRef; // Cache active match dataset
     updateStatsPanelUI(node.matchDataRef);
+    switchTabs('match'); // Auto-reset tab view back to match metrics when a flag is selected
     statsPanel.classList.add('panel-open');
+}
+
+// FEATURE 1 UTILITY: Calculates human-scannable ticking intervals relative to live clock
+function calculateCountdownString(kickoffDateIso) {
+    const timeDeltaMs = new Date(kickoffDateIso) - new Date();
+    if (timeDeltaMs <= 0) return "Match Starting...";
+
+    const netMinutes = Math.floor(timeDeltaMs / 1000 / 60);
+    const netHours = Math.floor(netMinutes / 60);
+    const partialMinutes = netMinutes % 60;
+    
+    if (netHours > 24) {
+        return `Starts in ${Math.floor(netHours / 24)}d ${netHours % 24}h`;
+    }
+    if (netHours > 0) {
+        return `Starts in ${netHours}h ${partialMinutes}m`;
+    }
+    return `Starts in ${partialMinutes}m`;
+}
+
+// FEATURE 1 RUNTIME ENGINE: Directly edits DOM textual layers to bypass full sidebar component template string redraw thrashing
+function updateLiveCountdowns() {
+    if (!currentlySelectedMatch) return;
+    const clockElement = document.querySelector('.match-clock');
+    if (!clockElement) return;
+    
+    const targetISO = clockElement.getAttribute('data-kickoff');
+    if (!targetISO) return;
+
+    clockElement.textContent = calculateCountdownString(targetISO);
 }
 
 function updateStatsPanelUI(match) {
@@ -424,16 +459,18 @@ function updateStatsPanelUI(match) {
     const stageName = comp.altGameNote || "FIFA World Cup";
     const matchState = match?.status?.type?.state;
     let clockDisplay = match?.status?.type?.detail || '';
+let staticKickoffTime = ''; // Secondary descriptor line
 
+    // FEATURE 1 EXTENSION: Parse and prime target date variables
     if (matchState === "pre" && match.date) {
         const utcKickoff = new Date(match.date);
-        clockDisplay = utcKickoff.toLocaleString(undefined, {
+        staticKickoffTime = utcKickoff.toLocaleString(undefined, {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit',
-            timeZoneName: 'long'
+            minute: '2-digit'
         });
+        clockDisplay = calculateCountdownString(match.date);
     }
 
     const getMetric = (teamData, field) => {
@@ -465,10 +502,11 @@ function updateStatsPanelUI(match) {
         return (v1 / (v1 + v2)) * 100;
     };
 
-    statsContent.innerHTML = `
+statsContent.innerHTML = `
         <div class="panel-header">
             <div class="stage-title">${escapeHtml(stageName)}</div>
-            <div class="match-clock">${escapeHtml(clockDisplay)}</div>
+            <div class="match-clock" data-kickoff="${match.date || ''}">${escapeHtml(clockDisplay)}</div>
+            ${staticKickoffTime ? `<div class="match-kickoff-static" style="font-size:10px; color:rgba(255,255,255,0.35); margin-top:6px; font-weight:600; letter-spacing:0.5px;">LOCAL: ${escapeHtml(staticKickoffTime)}</div>` : ''}
         </div>
         <div class="panel-scoreboard">
             <div class="panel-team-name" style="color:${homeColor}">${escapeHtml(homeTeam.team.displayName)}</div>
@@ -514,10 +552,94 @@ closePanelBtn.addEventListener('click', () => {
     statsPanel.classList.remove('panel-open');
     document.querySelectorAll('.bracket-node').forEach(n => n.classList.remove('selected-view'));
     
-    // Smoothly remove the custom color overrides so the golden CSS defaults take over again
+    currentlySelectedMatch = null; // Clear active runner tracking loop
     document.documentElement.style.removeProperty('--ambient-home');
     document.documentElement.style.removeProperty('--ambient-away');
 });
+
+// ==========================================================================
+// FEATURE 4: TAB SWITCH NAVIGATION LAYER & REGISTRATION
+// ==========================================================================
+const tabMatchStats = document.getElementById('tabMatchStats');
+const tabLeaders = document.getElementById('tabLeaders');
+const statsContentEl = document.getElementById('statsContent');
+const leadersContentEl = document.getElementById('leadersContent');
+
+function switchTabs(targetTab) {
+    if (targetTab === 'match') {
+        tabMatchStats.classList.add('active');
+        tabLeaders.classList.remove('active');
+        statsContentEl.classList.remove('hidden');
+        leadersContentEl.classList.add('hidden');
+    } else {
+        tabMatchStats.classList.remove('active');
+        tabLeaders.classList.add('active');
+        statsContentEl.classList.add('hidden');
+        leadersContentEl.classList.remove('hidden');
+        renderLeadersDashboard();
+    }
+}
+
+if (tabMatchStats && tabLeaders) {
+    tabMatchStats.addEventListener('click', () => switchTabs('match'));
+    tabLeaders.addEventListener('click', () => switchTabs('leaders'));
+}
+
+// Global Core Tournament Statistics Database Model
+const MOCK_LEADERS_DATA = {
+    scorers: [
+        { rank: 1, name: "Vinícius Júnior", team: "BRA", value: 6 },
+        { rank: 2, name: "Jamal Musiala", team: "GER", value: 5 },
+        { rank: 3, name: "Kylian Mbappé", team: "FRA", value: 4 },
+        { rank: 4, name: "Jude Bellingham", team: "ENG", value: 4 },
+        { rank: 5, name: "Lautaro Martínez", team: "ARG", value: 3 }
+    ],
+    assists: [
+        { rank: 1, name: "Florian Wirtz", team: "GER", value: 5 },
+        { rank: 2, name: "Kevin De Bruyne", team: "BEL", value: 4 },
+        { rank: 3, name: "Lionel Messi", team: "ARG", value: 3 },
+        { rank: 4, name: "Nico Williams", team: "ESP", value: 3 },
+        { rank: 5, name: "Rafael Leão", team: "POR", value: 3 }
+    ]
+};
+
+function renderLeadersDashboard() {
+    let dashboardHTML = `
+        <div class="leaders-section">
+            <div class="leaders-title">Golden Boot (Goals)</div>
+    `;
+    
+    MOCK_LEADERS_DATA.scorers.forEach(p => {
+        dashboardHTML += `
+            <div class="leader-row">
+                <div class="leader-rank">#${p.rank}</div>
+                <div class="leader-name">${escapeHtml(p.name)}</div>
+                <div class="leader-team">${escapeHtml(p.team)}</div>
+                <div class="leader-tally">${p.value}</div>
+            </div>
+        `;
+    });
+
+    dashboardHTML += `
+        </div>
+        <div class="leaders-section">
+            <div class="leaders-title">Top Playmakers (Assists)</div>
+    `;
+
+    MOCK_LEADERS_DATA.assists.forEach(p => {
+        dashboardHTML += `
+            <div class="leader-row">
+                <div class="leader-rank">#${p.rank}</div>
+                <div class="leader-name">${escapeHtml(p.name)}</div>
+                <div class="leader-team">${escapeHtml(p.team)}</div>
+                <div class="leader-tally">${p.value}</div>
+            </div>
+        `;
+    });
+
+    dashboardHTML += `</div>`;
+    leadersContentEl.innerHTML = dashboardHTML;
+}
 
 function drawCanvasContext() {
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
@@ -689,6 +811,15 @@ function masterDriverOrbitLoop() {
     }
     
     syncLayoutPositions();
+	
+	// FEATURE 1: Continuous passive calculation driver engine
+    if (currentlySelectedMatch && !isLoadAnimating) {
+        countdownFrameCounter++;
+        if (countdownFrameCounter >= 60) { // Throttled to execute exactly once per second at 60fps
+            countdownFrameCounter = 0;
+            updateLiveCountdowns();
+        }
+    }
 
     if (particles.length > 0) {
         for (let i = particles.length - 1; i >= 0; i--) {
