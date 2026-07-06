@@ -73,8 +73,8 @@
 	"snapshotoverlay" : "",
 	"tags" : [ "Sports" ],
 	"title" : "FIFA 26:Live Knockouts Revolve",
-	"type" : "web",
-	"version" : 1,
+	"type" : "Web",
+	"version" : 2,
 	"visibility" : "public",
 	"workshopid" : "3758609321",
 	"workshopurl" : "steam://url/CommunityFilePage/3758609321"

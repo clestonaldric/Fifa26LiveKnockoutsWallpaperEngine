@@ -21,6 +21,10 @@ let cachedBaseRadius = 0;
 let globalRotation = 0;
 let ROTATION_SPEED = 0.0012; 
 
+// Global State Trackers
+let hoveredTeam = null;
+let shockwaves = []; // ADDED: Tracks concentric sonar ripples
+
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
     rotationSpeed: ROTATION_SPEED,
@@ -192,11 +196,26 @@ function refreshNodeDOMStructures() {
             if (!nodeDOM) {
                 nodeDOM = document.createElement('div');
                 nodeDOM.id = `node-${round}-${index}`;
+                
+                // Interaction Layer
                 nodeDOM.addEventListener('pointerdown', (event) => {
                     event.preventDefault(); 
                     event.stopPropagation();
                     handleNodeClickEvent(nodeDOM, node);
                 });
+
+                // FIXED: Hover listeners moved inside the block where node and nodeDOM exist
+                nodeDOM.addEventListener('pointerenter', () => { 
+                    if (!node.isEmpty) {
+                        hoveredTeam = node.label; 
+                        drawCanvasContext(); 
+                    }
+                });
+                nodeDOM.addEventListener('pointerleave', () => { 
+                    hoveredTeam = null; 
+                    drawCanvasContext(); 
+                });
+
                 container.appendChild(nodeDOM);
             }
 
@@ -435,6 +454,11 @@ function updateStatsPanelUI(match) {
     const normalizeAbbr = (abbr) => String(abbr || '').toUpperCase();
     const homeColor = FLAG_COLORS[ESPN_TO_ISO[normalizeAbbr(homeTeam.team.abbreviation)]] || '#ffffff';
     const awayColor = FLAG_COLORS[ESPN_TO_ISO[normalizeAbbr(awayTeam.team.abbreviation)]] || '#ffffff';
+	
+	// FEATURE 4 ADDITION: Localized Color Ambient Bleed Engine
+    // Appends a '26' hex alpha value (15% opacity) to keep the background ambient glow elegant
+    document.documentElement.style.setProperty('--ambient-home', `${homeColor}26`);
+    document.documentElement.style.setProperty('--ambient-away', `${awayColor}26`);
 
     const calculateRatio = (v1, v2) => {
         if (v1 === 0 && v2 === 0) return 50;
@@ -489,6 +513,10 @@ function renderStatBar(title, leftVal, ratio, rightVal, leftColor, rightColor) {
 closePanelBtn.addEventListener('click', () => {
     statsPanel.classList.remove('panel-open');
     document.querySelectorAll('.bracket-node').forEach(n => n.classList.remove('selected-view'));
+    
+    // Smoothly remove the custom color overrides so the golden CSS defaults take over again
+    document.documentElement.style.removeProperty('--ambient-home');
+    document.documentElement.style.removeProperty('--ambient-away');
 });
 
 function drawCanvasContext() {
@@ -519,28 +547,36 @@ function drawCanvasContext() {
             points.push({ x: parentNode.x, y: parentNode.y });
 
             const isWinnerTrack = (!node.isEmpty && parentNode.label === node.label);
+            const isHoveredTrack = (hoveredTeam && node.label === hoveredTeam && parentNode.label === hoveredTeam);
 
-            if (isWinnerTrack) {
+            // 1. Structural Bracket Custom Styling Rules
+            if (isHoveredTrack) {
+                const teamColor = FLAG_COLORS[node.label] || '#ffffff';
+                ctx.strokeStyle = teamColor;
+                ctx.lineWidth = settings.winnerLineBase + 3.5 + (effectiveAudioBass * settings.glowIntensity * 2.0);
+                ctx.shadowColor = teamColor;
+                ctx.shadowBlur = 20 + (effectiveAudioBass * settings.glowIntensity * 10);
+            } else if (isWinnerTrack) {
                 const teamColor = FLAG_COLORS[node.label] || '#d4af37';
                 ctx.strokeStyle = teamColor;
                 ctx.lineWidth = settings.winnerLineBase + (effectiveAudioBass * settings.glowIntensity * 2.0);
                 ctx.shadowColor = teamColor;
                 ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
             } else if (node.isLive) {
-				const liveGradient = ctx.createRadialGradient(
-						cachedCx, cachedCy, currentRadius,
-						cachedCx, cachedCy, nextRadius
-					);
-					
-					liveGradient.addColorStop(0, '#00f5ff');   
-					liveGradient.addColorStop(0.5, '#ff007f'); 
-					liveGradient.addColorStop(1, '#ffcc00');   
-					
-					ctx.strokeStyle = liveGradient; 
-					ctx.lineWidth = 3.0 + (effectiveAudioBass * settings.glowIntensity * 4);
-					
-					ctx.shadowColor = '#ff007f'; 
-					ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12);
+                const liveGradient = ctx.createRadialGradient(
+                    cachedCx, cachedCy, currentRadius,
+                    cachedCx, cachedCy, nextRadius
+                );
+                
+                liveGradient.addColorStop(0, '#00f5ff');   
+                liveGradient.addColorStop(0.5, '#ff007f'); 
+                liveGradient.addColorStop(1, '#ffcc00');   
+                
+                ctx.strokeStyle = liveGradient; 
+                ctx.lineWidth = 3.0 + (effectiveAudioBass * settings.glowIntensity * 4);
+                
+                ctx.shadowColor = '#ff007f'; 
+                ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12);
             } else {
                 const distanceFromCenter = (TOTAL_ROUNDS - 1) - round;
                 const baseGrid = settings.gridColor;
@@ -562,6 +598,7 @@ function drawCanvasContext() {
                 currentLineProgress = getRoundProgress(round);
             }
 
+            // 2. Compute Segment Path Architecture
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
             let totalSegments = points.length - 1;
@@ -579,8 +616,57 @@ function drawCanvasContext() {
                     break;
                 }
             }
+            
             ctx.stroke();
+
+            // 3. Render Kinetic Energy Streams: Fiber-Optic Plasma Implementation
+            if ((isWinnerTrack || isHoveredTrack) && !isLoadAnimating) {
+                ctx.save();
+                const teamColor = FLAG_COLORS[node.label] || '#d4af37';
+                
+                ctx.globalCompositeOperation = 'lighter'; 
+                ctx.strokeStyle = teamColor;
+                ctx.lineWidth = settings.winnerLineBase + 0.8;
+                
+                ctx.setLineDash([14, 48]); 
+                ctx.lineDashOffset = -globalRotation * 280; 
+                
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = isHoveredTrack ? 14 : 8;
+                
+                ctx.stroke(); 
+                ctx.restore(); 
+            }
         });
+    }
+
+    // 4. FEATURE 5 ADDITION: Concentric Sonar Shockwaves Execution Layer
+    if (settings.audioReactive && shockwaves.length > 0) {
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+            const wave = shockwaves[i];
+            
+            // Adjust execution rates to modify pulse speed and fade timing
+            wave.radius += cachedBaseRadius * 0.006; 
+            wave.alpha -= 0.012; 
+
+            if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
+                shockwaves.splice(i, 1);
+                continue;
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            // Static concentric arc centered cleanly around the chassis axis
+            ctx.arc(cachedCx, cachedCy, wave.radius, 0, Math.PI * 2);
+            
+            ctx.strokeStyle = `rgba(212, 175, 55, ${wave.alpha * settings.glowIntensity})`;
+            ctx.lineWidth = 1.0 + (effectiveAudioBass * 2.5);
+            ctx.shadowColor = 'rgba(212, 175, 55, 0.4)';
+            ctx.shadowBlur = 12 * wave.alpha;
+            
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     particles.forEach(p => p.draw(ctx));
@@ -649,6 +735,18 @@ if (window.wallpaperRegisterAudioListener) {
         const bassRight = (audioArray[64] + audioArray[65] + audioArray[66] + audioArray[67]) / 4;
         audioBass = (bassLeft + bassRight) / 2;
         const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
+
+        // FEATURE 5 ADDITION: Shockwave Spawn Logic
+        if (settings.audioReactive && audioBass > 0.82) {
+            // Prevent frame-flooding by forcing a structural separation distance between rings
+            if (shockwaves.length === 0 || shockwaves[shockwaves.length - 1].radius > (cachedBaseRadius * 0.12)) {
+                shockwaves.push({
+                    radius: cachedBaseRadius * 0.04,
+                    alpha: 0.45,
+                    maxRadius: cachedBaseRadius * 0.48
+                });
+            }
+        }
 
         const centerGlow = document.querySelector('.center-glow');
         if (centerGlow) {
