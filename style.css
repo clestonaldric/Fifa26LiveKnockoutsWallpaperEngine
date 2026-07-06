@@ -235,12 +235,12 @@ body, html {
     padding: 40px 24px;
     color: #ffffff;
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+/* Scroll Behavior Fixes */
     overflow-y: auto; 
     -webkit-overflow-scrolling: touch;
-    will-change: transform;
-	/* EXTRA SAFETY: Tells the rendering container that touch/drag gestures inside 
-       the sidebar area are explicitly reserved for vertical pane scrolling */
+    overscroll-behavior: contain; 
     touch-action: pan-y;
+    will-change: transform;
 }
 
 .stats-panel.panel-open {
@@ -519,4 +519,29 @@ body, html {
 .stats-insights-grid > div:hover {
     transform: translateY(-2px);
     border-color: rgba(212, 175, 55, 0.3) !important;
+}
+
+/* Container must have hidden overflow */
+.timeline-scroll-axis {
+    overflow: hidden;
+    max-height: 160px;
+    position: relative;
+}
+
+/* The scroller that moves */
+.premium-scroller {
+    animation: autoScroll 20s linear infinite;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Optional: Pause the scroll when the user hovers over it to read */
+.premium-scroller:hover {
+    animation-play-state: paused;
+}
+
+@keyframes autoScroll {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); } /* Adjust if content is very long */
 }
