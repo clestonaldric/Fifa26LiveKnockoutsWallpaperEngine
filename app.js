@@ -1471,7 +1471,7 @@ if (window.wallpaperRegisterAudioListener) {
         audioBass = (bassLeft + bassRight) / 2;
         const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
 
-        if (settings.audioReactive && audioBass > 0.60) {
+        if (settings.audioReactive && audioBass > 0.40) {
             if (shockwaves.length === 0 || shockwaves[shockwaves.length - 1].radius > (cachedBaseRadius * 0.12)) {
                 shockwaves.push({
                     radius: cachedBaseRadius * 0.04,
