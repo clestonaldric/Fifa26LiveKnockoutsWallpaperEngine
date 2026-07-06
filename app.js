@@ -20,6 +20,7 @@ let cachedBaseRadius = 0;
 // Hardware Accelerated Rotation Variables
 let globalRotation = 0;
 let ROTATION_SPEED = 0.0012;
+let audioVelocity = 0; // Tracks persistent lingering momentum surges
 
 // Global State Trackers
 let hoveredTeam = null;
@@ -451,11 +452,11 @@ async function fetchAndApplyLiveScores() {
                             if (winnerIso === child1.label) {
                                 bracketTree[round][i].label = child1.label;
                                 bracketTree[round][i].isEmpty = false;
-                                child2.isLoser = true; // Correct: Child 2 lost
+                                child2.isLoser = true; 
                             } else if (winnerIso === child2.label) {
                                 bracketTree[round][i].label = child2.label;
                                 bracketTree[round][i].isEmpty = false;
-                                child1.isLoser = true; // FIXED: Correct: Child 1 lost
+                                child1.isLoser = true; 
                             }
                         }
                     }
@@ -902,7 +903,7 @@ function renderLeadersDashboard() {
         </div>
     `;
 
-    // Package leaders list structure inside correct variable tracking
+    // FIXED: Appending array chunks perfectly inside leadersListsHTML string variable target
     let leadersListsHTML = `
         <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Golden Boot (Goals)</div>
@@ -972,7 +973,7 @@ function renderLeadersDashboard() {
 
     leadersListsHTML += `</div>`;
 
-    // Inject compiled nodes into viewport dynamic scroll frame layout
+    // Inject compiled content blocks into the dynamic full-height loop container tracking
     dashboardHTML += `
         <div class="timeline-scroll-axis" style="height: calc(100vh - 290px); max-height: none;">
             <div class="premium-scroller" style="animation-duration: 45s;">
@@ -1220,28 +1221,6 @@ function computeLiveDisciplinaryTeams(events) {
 function drawCanvasContext() {
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
-    // === VISUAL UPGRADE: SCI-FI HUD MATRIX BACKDROP ===
-    ctx.save();
-    ctx.lineWidth = 1;
-    ctx.shadowBlur = 0; 
-    
-    [43.5, 34.0, 25.0, 16.5].forEach((proportion, i) => {
-        const radius = (proportion / 100) * cachedBaseRadius;
-        
-        ctx.strokeStyle = `rgba(${settings.gridColor.r}, ${settings.gridColor.g}, ${settings.gridColor.b}, 0.025)`;
-        ctx.beginPath();
-        ctx.arc(cachedCx, cachedCy, radius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.strokeStyle = `rgba(212, 175, 55, ${0.04 + (settings.audioReactive ? audioBass * 0.04 : 0)})`;
-        ctx.setLineDash([4, i * 15 + 20]);
-        ctx.lineDashOffset = (i % 2 === 0 ? globalRotation : -globalRotation) * radius * 0.5;
-        ctx.beginPath();
-        ctx.arc(cachedCx, cachedCy, radius + 4, 0, Math.PI * 2);
-        ctx.stroke();
-    });
-    ctx.restore();
-
     const effectiveAudioBass = settings.audioReactive ? Math.min(1, Math.max(0, audioBass)) : 0;
 
     for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
@@ -1420,17 +1399,18 @@ function masterDriverOrbitLoop() {
     if (isDragging) {
         // Position bound to pointer coordinates via listeners
     } else {
-        // === VISUAL UPGRADE: AUDIO KINETIC INERTIA ===
-        let activeRotationSpeed = ROTATION_SPEED;
+        // Dynamic true audio kinetic momentum wheel calculation
+        audioVelocity *= 0.94; 
         if (settings.audioReactive && audioBass > 0.4) {
-            activeRotationSpeed += (audioBass * 0.0018); 
+            audioVelocity += (audioBass - 0.4) * 0.0028; 
         }
+        if (audioVelocity > 0.02) audioVelocity = 0.02; 
 
         if (Math.abs(angularVelocity) > 0.00005) {
             globalRotation += angularVelocity * 16.67;
             angularVelocity *= 0.96;
         } else {
-            globalRotation = (globalRotation + activeRotationSpeed) % (Math.PI * 2);
+            globalRotation = (globalRotation + ROTATION_SPEED + audioVelocity) % (Math.PI * 2);
         }
     }
 
@@ -1491,7 +1471,6 @@ if (window.wallpaperRegisterAudioListener) {
         audioBass = (bassLeft + bassRight) / 2;
         const effectiveAudioBass = settings.audioReactive ? audioBass : 0;
 
-        // Shockwave sensitivity optimized from 0.82 to 0.60
         if (settings.audioReactive && audioBass > 0.60) {
             if (shockwaves.length === 0 || shockwaves[shockwaves.length - 1].radius > (cachedBaseRadius * 0.12)) {
                 shockwaves.push({
