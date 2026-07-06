@@ -36,6 +36,12 @@ let lastPointerAngle = 0;
 let lastPointerTime = 0;
 let angularVelocity = 0; // Tracks rotation speed in radians per millisecond
 
+// Dynamic state tracking for tournament leaderboards
+let liveScorers = [];
+let liveAssistsTeams = [];
+let liveDirtyTeams = [];       
+let globalTournamentStats = {}; 
+
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
     rotationSpeed: ROTATION_SPEED,
@@ -285,6 +291,18 @@ async function fetchAndApplyLiveScores() {
         
         const data = await response.json();
         if (!data || !Array.isArray(data.events)) return;
+		
+		// === NEW: Compute leaderboards directly from the live data stream ===
+        liveScorers = computeLiveScorers(data.events);
+        liveAssistsTeams = computeLiveTeamAssists(data.events);
+		liveDirtyTeams = computeLiveDisciplinaryTeams(data.events); 
+		globalTournamentStats = computeGlobalTournamentStats(data.events);
+        
+        // If the user currently has the leaders tab open, refresh the elements instantly
+        if (!leadersContentEl.classList.contains('hidden')) {
+            renderLeadersDashboard();
+        }
+        // ==================================================================
 
         const eventMap = new Map();
         for (const evt of data.events) {
@@ -481,6 +499,11 @@ function calculateCountdownString(kickoffDateIso) {
 // FEATURE 1 RUNTIME ENGINE: Directly edits DOM textual layers to bypass full sidebar component template string redraw thrashing
 function updateLiveCountdowns() {
     if (!currentlySelectedMatch) return;
+	
+	// SAFEGUARD: If the match state isn't upcoming ("pre"), exit immediately 
+    // to protect completed scorelines from being overwritten by the ticker loop.
+    if (currentlySelectedMatch.status?.type?.state !== "pre") return;
+	
     const clockElement = document.querySelector('.match-clock');
     if (!clockElement) return;
     
@@ -613,13 +636,19 @@ function switchTabs(targetTab) {
     if (targetTab === 'match') {
         tabMatchStats.classList.add('active');
         tabLeaders.classList.remove('active');
-        statsContentEl.classList.remove('hidden');
-        leadersContentEl.classList.add('hidden');
+        
+        // Show match stats, hide tournament leaders
+        statsContentEl.style.display = 'block';
+        leadersContentEl.style.display = 'none';
     } else {
         tabMatchStats.classList.remove('active');
         tabLeaders.classList.add('active');
-        statsContentEl.classList.add('hidden');
-        leadersContentEl.classList.remove('hidden');
+        
+        // Hide match stats entirely, show tournament leaders
+        statsContentEl.style.display = 'none';
+        leadersContentEl.style.display = 'block';
+        
+        // Instantly renders live calculations compiled from the scoreboard payload
         renderLeadersDashboard();
     }
 }
@@ -649,11 +678,38 @@ const MOCK_LEADERS_DATA = {
 
 function renderLeadersDashboard() {
     let dashboardHTML = `
-        <div class="leaders-section">
+        <!-- 4-Column Global Tournament Metrics Grid -->
+        <div class="stats-insights-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 9px; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px;">Goals</div>
+                <div style="font-size: 16px; font-weight: 800; color: #ffcc00; margin-top: 4px;">${globalTournamentStats.goals || 0}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 9px; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px;">Attendance</div>
+                <div style="font-size: 13px; font-weight: 800; color: #ffffff; margin-top: 6px;">${(globalTournamentStats.attendance || 0).toLocaleString()}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 9px; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px;">Shutouts</div>
+                <div style="font-size: 16px; font-weight: 800; color: #00f5ff; margin-top: 4px;">${globalTournamentStats.cleanSheets || 0}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 9px; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 0.5px;">Reds</div>
+                <div style="font-size: 16px; font-weight: 800; color: #ff3b30; margin-top: 4px;">${globalTournamentStats.reds || 0}</div>
+            </div>
+        </div>
+
+        <!-- Featured High-Scoring Match Banner -->
+        <div style="background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.2)); border: 1px solid rgba(212,175,55,0.2); padding: 12px; border-radius: 8px; margin-bottom: 25px; text-align: center;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #d4af37; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 4px;">Highest Scoring Match</div>
+            <div style="font-size: 13px; font-weight: 700; color: #ffffff;">${escapeHtml(globalTournamentStats.highestScoringMatch)}</div>
+        </div>
+
+        <!-- Player Leaderboards -->
+        <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Golden Boot (Goals)</div>
     `;
     
-    MOCK_LEADERS_DATA.scorers.forEach(p => {
+    liveScorers.forEach(p => {
         dashboardHTML += `
             <div class="leader-row">
                 <div class="leader-rank">#${p.rank}</div>
@@ -666,17 +722,34 @@ function renderLeadersDashboard() {
 
     dashboardHTML += `
         </div>
-        <div class="leaders-section">
-            <div class="leaders-title">Top Playmakers (Assists)</div>
+        <div class="leaders-section" style="margin-bottom: 25px;">
+            <div class="leaders-title">Top Playmaking Teams (Assists)</div>
     `;
 
-    MOCK_LEADERS_DATA.assists.forEach(p => {
+    liveAssistsTeams.forEach(t => {
         dashboardHTML += `
             <div class="leader-row">
-                <div class="leader-rank">#${p.rank}</div>
-                <div class="leader-name">${escapeHtml(p.name)}</div>
-                <div class="leader-team">${escapeHtml(p.team)}</div>
-                <div class="leader-tally">${p.value}</div>
+                <div class="leader-rank">#${t.rank}</div>
+                <div class="leader-name">${escapeHtml(t.name)}</div>
+                <div class="leader-team">${escapeHtml(t.team)}</div>
+                <div class="leader-tally">${t.value}</div>
+            </div>
+        `;
+    });
+
+    dashboardHTML += `
+        </div>
+        <div class="leaders-section">
+            <div class="leaders-title">Aggression Index (Cards Weight)</div>
+    `;
+
+    liveDirtyTeams.forEach(t => {
+        dashboardHTML += `
+            <div class="leader-row">
+                <div class="leader-rank">#${t.rank}</div>
+                <div class="leader-name">${escapeHtml(t.name)}</div>
+                <div class="leader-team">${escapeHtml(t.team)}</div>
+                <div class="leader-tally" style="color: #ffcc00">${t.value}</div>
             </div>
         `;
     });
@@ -684,6 +757,194 @@ function renderLeadersDashboard() {
     dashboardHTML += `</div>`;
     leadersContentEl.innerHTML = dashboardHTML;
 }
+
+// 1. Parses individual player goals from the match events details timeline
+function computeLiveScorers(events) {
+    const scorerMap = {};
+
+    events.forEach(evt => {
+        const competitors = evt?.competitions?.[0]?.competitors || [];
+        const details = evt?.competitions?.[0]?.details || [];
+
+        details.forEach(detail => {
+            const typeText = String(detail?.type?.text || '').toLowerCase();
+            const isGoal = typeText.includes('goal') || typeText.includes('penalty - scored');
+            const isOwnGoal = detail?.ownGoal === true;
+            const isShootout = detail?.shootout === true;
+
+            // Only count real goals scored during regular or extra time
+            if (isGoal && !isOwnGoal && !isShootout) {
+                const athlete = detail?.athletesInvolved?.[0];
+                const teamId = detail?.team?.id || athlete?.team?.id;
+                
+                if (athlete && athlete.displayName) {
+                    const playerName = athlete.displayName;
+
+                    // Resolve the team's 3-letter abbreviation from competitors
+                    let teamAbbr = "TBD";
+                    const matchingComp = competitors.find(c => String(c.id) === String(teamId));
+                    if (matchingComp && matchingComp.team) {
+                        teamAbbr = matchingComp.team.abbreviation || "TBD";
+                    }
+
+                    if (!scorerMap[playerName]) {
+                        scorerMap[playerName] = { name: playerName, team: teamAbbr.toUpperCase(), goals: 0 };
+                    }
+                    scorerMap[playerName].goals += 1;
+                }
+            }
+        });
+    });
+
+    // Convert map to array, sort descending by goals, and take the top 5
+    return Object.values(scorerMap)
+        .sort((a, b) => b.goals - a.goals)
+        .slice(0, 5)
+        .map((player, idx) => ({
+            rank: idx + 1,
+            name: player.name,
+            team: player.team,
+            value: player.goals
+        }));
+}
+
+// 2. Aggregates team-level assists from the competitors match stats
+function computeLiveTeamAssists(events) {
+    const teamAssistMap = {};
+
+    events.forEach(evt => {
+        const competitors = evt?.competitions?.[0]?.competitors || [];
+        
+        competitors.forEach(comp => {
+            if (comp.team && comp.statistics) {
+                const teamName = comp.team.displayName || "Unknown Team";
+                const teamAbbr = (comp.team.abbreviation || "TBD").toUpperCase();
+                
+                // Locate the goalAssists property inside the statistics array
+                const assistStat = comp.statistics.find(s => s.name === "goalAssists");
+                const assistsInMatch = assistStat ? parseInt(assistStat.displayValue) || 0 : 0;
+
+                if (!teamAssistMap[teamAbbr]) {
+                    teamAssistMap[teamAbbr] = { name: teamName, abbr: teamAbbr, assists: 0 };
+                }
+                teamAssistMap[teamAbbr].assists += assistsInMatch;
+            }
+        });
+    });
+
+    // Convert map to array, sort descending by total assists, and take the top 5
+    return Object.values(teamAssistMap)
+        .sort((a, b) => b.assists - a.assists)
+        .slice(0, 5)
+        .map((team, idx) => ({
+            rank: idx + 1,
+            name: team.name,
+            team: team.abbr,
+            value: team.assists
+        }));
+}
+
+function computeGlobalTournamentStats(events) {
+    let totalGoals = 0;
+    let totalAttendance = 0;
+    let totalReds = 0;
+    let totalCleanSheets = 0;
+    
+    let highestMatchScore = -1;
+    let highestScoringMatchStr = "No games recorded";
+
+    events.forEach(evt => {
+        const comp = evt?.competitions?.[0];
+        if (!comp) return;
+
+        // 1. Attendance Accumulation
+        if (comp.attendance && Number.isFinite(comp.attendance)) {
+            totalAttendance += comp.attendance;
+        }
+
+        const competitors = comp.competitors || [];
+        if (competitors.length >= 2) {
+            const score0 = parseInt(competitors[0].score) || 0;
+            const score1 = parseInt(competitors[1].score) || 0;
+            const combinedScore = score0 + score1;
+            
+            // Tally goals
+            totalGoals += combinedScore;
+
+            // 2. Clean Sheets Tally (Any team holding opponent to 0)
+            if (score0 === 0) totalCleanSheets++;
+            if (score1 === 0) totalCleanSheets++;
+
+            // 3. Highest Scoring Match Evaluator
+            if (combinedScore > highestMatchScore) {
+                highestMatchScore = combinedScore;
+                const team0 = competitors[0]?.team?.displayName || "TBD";
+                const team1 = competitors[1]?.team?.displayName || "TBD";
+                highestScoringMatchStr = `${team0} ${score0} : ${score1} ${team1}`;
+            }
+        }
+
+        // 4. Red Cards Tally
+        const details = comp.details || [];
+        details.forEach(detail => {
+            if (detail?.redCard === true || String(detail?.type?.text).toLowerCase() === 'red card') {
+                totalReds++;
+            }
+        });
+    });
+
+    return {
+        goals: totalGoals,
+        attendance: totalAttendance,
+        reds: totalReds,
+        cleanSheets: totalCleanSheets,
+        highestScoringMatch: highestScoringMatchStr
+    };
+}
+
+function computeLiveDisciplinaryTeams(events) {
+    const cardMap = {};
+
+    events.forEach(evt => {
+        const competitors = evt?.competitions?.[0]?.competitors || [];
+        const details = evt?.competitions?.[0]?.details || [];
+
+        details.forEach(detail => {
+            const typeText = String(detail?.type?.text || '').toLowerCase();
+            const isYellow = typeText.includes('yellow');
+            const isRed = typeText.includes('red') || detail?.redCard === true;
+
+            if (isYellow || isRed) {
+                const teamId = detail?.team?.id;
+                let teamAbbr = "TBD";
+                let teamName = "Unknown";
+
+                const matchingComp = competitors.find(c => String(c.id) === String(teamId));
+                if (matchingComp && matchingComp.team) {
+                    teamAbbr = (matchingComp.team.abbreviation || "TBD").toUpperCase();
+                    teamName = matchingComp.team.displayName || "Unknown Team";
+                }
+
+                if (teamAbbr !== "TBD") {
+                    if (!cardMap[teamAbbr]) {
+                        cardMap[teamAbbr] = { name: teamName, abbr: teamAbbr, points: 0 };
+                    }
+                    cardMap[teamAbbr].points += isRed ? 3 : 1;
+                }
+            }
+        });
+    });
+
+    return Object.values(cardMap)
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 5)
+        .map((team, idx) => ({
+            rank: idx + 1,
+            name: team.name,
+            team: team.abbr,
+            value: `${team.points} pts`
+        }));
+};
 
 function drawCanvasContext() {
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
@@ -1021,6 +1282,11 @@ const getPointerAngle = (clientX, clientY) => {
 
 container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
+    
+    // SAFEGUARD: If the user clicks inside the stats panel or tabs, 
+    // do not trigger the global wheel dragging mechanism.
+    if (e.target.closest('#statsPanel')) return;
+
     isDragging = true;
     hasDraggedSignificant = false;
     
@@ -1030,32 +1296,33 @@ container.addEventListener('pointerdown', (e) => {
     
     lastPointerAngle = currentAngle;
     lastPointerTime = performance.now();
-    angularVelocity = 0; // Freeze any existing spinning motion on grab
+    angularVelocity = 0; 
 });
 
 window.addEventListener('pointermove', (e) => {
     if (!isDragging) return;
+    
+    // SAFEGUARD: If the move path clips into the stats panel bounds, 
+    // kill the wheel drag state to preserve text scrolling freedom.
+    if (e.target.closest('#statsPanel')) {
+        isDragging = false;
+        return;
+    }
 
     const currentAngle = getPointerAngle(e.clientX, e.clientY);
     const now = performance.now();
     const deltaTime = now - lastPointerTime;
 
-    // Determine raw positional shift arc
     let deltaAngle = currentAngle - lastPointerAngle;
-    
-    // Correct angle wrapping thresholds across the Math.PI boundary limits (-180 to +180 deg)
     if (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
     if (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
 
-    // Track total accumulated movement arc to distinguish drags from clicks
     if (Math.abs(currentAngle - dragStartAngle) > 0.03) {
         hasDraggedSignificant = true;
     }
 
-    // Apply tracking adjustments directly to rendering properties
     globalRotation += deltaAngle;
 
-    // Calculate rotational force velocity vector (radians per millisecond)
     if (deltaTime > 0) {
         angularVelocity = deltaAngle / deltaTime;
     }

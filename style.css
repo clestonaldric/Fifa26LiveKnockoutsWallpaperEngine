@@ -238,6 +238,9 @@ body, html {
     overflow-y: auto; 
     -webkit-overflow-scrolling: touch;
     will-change: transform;
+	/* EXTRA SAFETY: Tells the rendering container that touch/drag gestures inside 
+       the sidebar area are explicitly reserved for vertical pane scrolling */
+    touch-action: pan-y;
 }
 
 .stats-panel.panel-open {
@@ -501,4 +504,19 @@ body, html {
     font-weight: 800;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
+}
+
+/* Add this to style.css to make your summary row pop */
+.stats-insights-grid > div {
+    background: rgba(12, 12, 12, 0.6) !important;
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.stats-insights-grid > div:hover {
+    transform: translateY(-2px);
+    border-color: rgba(212, 175, 55, 0.3) !important;
 }
