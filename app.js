@@ -324,6 +324,16 @@ function getTeamFormHTML(comp) {
 }
 
 function refreshNodeDOMStructures() {
+	// --- NEW: COMPILE A MASTER SET OF ALL COMPLETELY ELIMINATED TEAMS ---
+    const eliminatedTeams = new Set();
+    for (let r = 0; r < TOTAL_ROUNDS; r++) {
+        for (let i = 0; i < bracketTree[r].length; i++) {
+            if (bracketTree[r][i].isLoser && bracketTree[r][i].label) {
+                eliminatedTeams.add(bracketTree[r][i].label);
+            }
+        }
+    }
+	
     for (let round = 0; round < TOTAL_ROUNDS; round++) {
         bracketTree[round].forEach((node, index) => {
             let nodeDOM = document.getElementById(`node-${round}-${index}`);
@@ -362,6 +372,11 @@ function refreshNodeDOMStructures() {
             let stateClass = 'empty';
             if (!node.isEmpty)
                 stateClass = 'advanced';
+			// --- FIX: GRAY OUT IF THIS NODE LOST *OR* IF THE TEAM IS ELIMINATED ANYWHERE ---
+            if (node.isLoser || (node.label && eliminatedTeams.has(node.label))) {
+                stateClass = 'loser';
+            }
+            // ------------------------------------------------------------------------------
             if (node.isLoser)
                 stateClass = 'loser';
             if (node.isLive)
