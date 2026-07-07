@@ -1,6 +1,6 @@
 {
 	"contentrating" : "Everyone",
-	"description" : "This interactive live wallpaper maps out the entire knockout stage in a beautiful, circular tree grid that automatically synchronizes with live tournament data.\n\nKey Features\nReal-Time API Sync: Automatically updates scores and team advancements throughout the tournament without needing any manual setup or API keys.\n\nVibrant Live Match Alerts: Live games instantly trigger an active, color-cycling breathing aura around competing flags, letting you know where the action is happening at a glance.\n\nInteractive Analytics Panel: Click or tap on any active or completed match flag to slide open a sleek, glassmorphic stats sidebar displaying live Possession, Total Shots, Shots on Target, and Corners.\n\nDynamic Winner Tracks: Watch the grid pathways permanently light up with vibrant, glowing neon lines styled to match the primary flag color of each advancing team.\n\nElite Performance Engine: Engineered with hardware-accelerated transforms and full data-state decoupling. DOM layout thrashing has been eliminated, reducing rendering overhead by over 85% to ensure it runs completely hidden in the background without impacting your foreground gaming performance.\n\nFully Audio Reactive: The central gold trophy slot and backdrop depth ring dynamically pulse and scale to the bass frequencies of your system music—completely customizable through your user properties menu!\n\nAdded an advanced breathing pulse animation feature for the cup and grid—play some music and try it out!\n\nCreated this based on a concept post of the world cup by @emiliosansolini on Instagram, do check him out! :)",
+	"description" : "Transform your desktop into a high-tech, live-updating holographic sports command center. This premium wallpaper combines sleek neon aesthetics with real-time tournament data, fluid physics, and high-fidelity audio-reactivity.\r\n\r\n🌐 Real-Time Live Data Integration\r\nLive Scoreboards: Pulls active match updates directly from the live tournament API.\r\n\r\nSmart Offline Sandbox: Includes an automated, elegant sandbox fallback layout with pre-loaded metrics if network access is restricted.\r\n\r\nMatch Incident Timeline: Seamlessly tracks in-game events (Goals ⚽, Yellow Cards 🟨, Red Cards 🟥, Penalties 🥅) inside an automated infinite-marquee log.\r\n\r\nLive Match Countdowns: Dynamically shifts pre-match countdowns to active live scores and post-match statuses.\r\n\r\n🎛️ Interactive Kinetic Physics & Visuals\r\nMomentum Orbit Control: Click and flick the bracket tree to spin it with natural kinetic drag, friction, and momentum wheel physics.\r\n\r\nGoal Spark Particle Blasts: Explosive cinematic particle explosions burst from flag nodes whenever a team scores a live goal.\r\n\r\nTeam Ambient Color-Bleeds: Dynamic background spotlight glows automatically blend crossfades to reflect the official flag colors of the teams currently selected or playing.\r\n\r\n⚡ Advanced Audio-Reactive Systems\r\nKinetic Audio Inertia: The entire tournament structure physically responds to your music, subtly kicking forward in orbital velocity on heavy bass drops before drifting back to a cruise speed.\r\n\r\nSub-Bass Shockwaves: Deep frequencies ignite expanding holographic shockwaves that scale dynamically out from the center axis.\r\n\r\nTrophy Pulse: The core centerpiece scales, glows, and breathes fluidly to the rhythm of your desktop audio.\r\n\r\n📊 Dynamic Full-Height Analytics Panel\r\nSlide out the detailed statistics command panel to toggle between two distinct full-scale tracking dashboards:\r\n\r\nMatch Stats Tab: Monitors match-specific data like Possession, Total Shots, Shots on Target, Won Corners, Fouls, and Key Passes using smooth, custom team-colored distribution tracks.\r\n\r\nGlobal Tournament Leaders: Features a dynamically scaling, full-height autoscrolling marquee cycling through key tournament metrics:\r\n\r\nGolden Boot: Live top goalscorer tallies.\r\n\r\nTop Playmaking Teams: Aggregated assist trackers.\r\n\r\nAdvanced Creativity: Dedicated team key-pass logs.\r\n\r\nAggression Index: Weighted discipline tracking (Yellow/Red card metrics).\r\n\r\n🛠️ Fully Customizable User Settings\r\nAdjust the entire experience directly from your Wallpaper Engine configuration menu:\r\n\r\nToggle global Audio Reactivity on/off.\r\n\r\nAdjust orbital Cruise Rotation Speed.\r\n\r\nScale UI Glow Intensity to perfectly match your monitor brightness.\r\n\r\nToggle Center Backdrop Spotlight glows.\r\n\r\nSeamless color palette mixing,custom grid and background tint selection fully supported.\r\n\r\nCreated this based on a post of the world cup by @emiliosansolini on Instagram, do check him out :)",
 	"file" : "index.html",
 	"general" : 
 	{
@@ -62,6 +62,11 @@
 				"text" : "Show Center Glow",
 				"type" : "bool",
 				"value" : true
+			},
+			"show2030Countdown": {
+			"text": "Show 2030 Centennial Countdown",
+			"type": "bool",
+			"value": true
 			}
 		},
 		"supportsaudioprocessing" : true
@@ -73,8 +78,8 @@
 	"snapshotoverlay" : "",
 	"tags" : [ "Sports" ],
 	"title" : "FIFA 26:Live Knockouts Revolve",
-	"type" : "Web",
-	"version" : 3,
+	"type" : "web",
+	"version" : 9,
 	"visibility" : "public",
 	"workshopid" : "3758609321",
 	"workshopurl" : "steam://url/CommunityFilePage/3758609321"

@@ -408,6 +408,12 @@ body, html {
     .panel-score-display {
         font-size: 26px; 
     }
+	.centennial-hud-ticker {
+        bottom: 85px; /* Safely floats above the bottom edge on phones */
+        font-size: 9.5px;
+        padding: 5px 12px;
+		text-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+    }
 }
 
 /* ERGONOMIC CLICK HITBOX EXPANDER */
@@ -605,11 +611,12 @@ body, html {
 }
 
 .victory-banner .banner-title {
-    font-size: 10px;
+    font-size: 9.5px;               /* Gently scaled down from 10px to fit the 292px sidebar width */
     text-transform: uppercase;
     color: #d4af37;
     font-weight: 800;
-    letter-spacing: 2px;
+    letter-spacing: 1px;            /* Reduced from 2px to save horizontal breathing room */
+    white-space: nowrap;            /* Absolute guarantee that text/emojis stay on a single line */
 }
 
 .victory-banner .banner-main {
@@ -630,6 +637,91 @@ body, html {
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 
+/* CINEMATIC STADIUM STROBE FLASH */
+.victory-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff;
+    
+    /* Layered to safely overlay bracket elements but stay below your text banner */
+    z-index: 70; 
+    opacity: 0;
+    pointer-events: none;
+}
+
+.victory-flash.flash-bang {
+    animation: stadiumFlash 0.75s cubic-bezier(0.1, 0.8, 0.1, 1) forwards;
+}
+
+@keyframes stadiumFlash {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+}
+
+/* CHAMPION TROPHY MAJESTIC ENTRANCE */
+.trophy-slot.champion-zoom img {
+    animation: trophyGloriousEntrance 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes trophyGloriousEntrance {
+    0% { 
+        transform: scale(1); 
+        filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.4)); 
+    }
+    30% { 
+        transform: scale(1.4) rotate(-8deg); 
+        filter: drop-shadow(0 0 45px #ffffff); 
+    }
+    50% { 
+        transform: scale(1.4) rotate(8deg); 
+    }
+    100% { 
+        transform: scale(1.22) rotate(0deg); 
+        filter: drop-shadow(0 0 35px var(--champion-glow, #d4af37)); 
+    }
+}
+
+/* PREMIUM GLOBAL HUD TICKER */
+.centennial-hud-ticker {
+    position: absolute;
+	bottom: 10px; /* Dropped down from 24px to completely clear the flag rotation radius */
+    left: 50%;
+    transform: translate3d(-50%, 0, 0);
+    background: rgba(8, 8, 8, 0.85); /* Slightly darker/more opaque backdrop to pop cleanly */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(212, 175, 55, 0.35); /* Boosted border opacity slightly for crispness */
+    padding: 6px 20px; /* Added slightly more horizontal breathing room for the text */
+    border-radius: 30px;
+    color: #d4af37;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4),
+                inset 0 0 12px rgba(212, 175, 55, 0.05);
+    z-index: 80;
+    transition: opacity 0.6s ease;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: hudGlowPulse 4s infinite ease-in-out;
+	text-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+}
+
+.centennial-hud-ticker.hidden {
+    display: none !important;
+    opacity: 0;
+}
+
+@keyframes hudGlowPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 0 5px rgba(212,175,55,0.05); border-color: rgba(212,175,55,0.2); }
+    50% { box-shadow: 0 4px 25px rgba(212,175,55,0.15), inset 0 0 15px rgba(212,175,55,0.1); border-color: rgba(212,175,55,0.4); }
+}
+
+
 /* ==========================================================================
    FINAL MOBILE VIEWPORT OVERRIDES (MUST LIVE AT THE ABSOLUTE BOTTOM)
    ========================================================================== */
@@ -645,5 +737,12 @@ body, html {
         max-width: 420px !important;
         z-index: 75 !important; 
         margin-bottom: 0 !important;
+    }
+	
+	/* NEW: Prevents the trophy emoji from dropping down on small mobile screens */
+    .victory-banner .banner-title {
+        white-space: nowrap !important;  /* Blocks the text from ever splitting lines */
+        font-size: 8.5px !important;     /* Gently reduces font scale for phone screens */
+        letter-spacing: 1px !important;  /* Tightens spacing slightly to save room */
     }
 }
