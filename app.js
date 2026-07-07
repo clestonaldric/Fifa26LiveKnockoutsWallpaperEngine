@@ -45,6 +45,10 @@ let liveDirtyTeams = [];
 let liveKeyPassesTeams = []; // Tracks team key passes (shot assists)
 let globalTournamentStats = {};
 
+// for frame rate limiting
+let lastTime = performance.now();
+
+
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
     rotationSpeed: ROTATION_SPEED,
@@ -1417,10 +1421,18 @@ function animateLoadLoop() {
 }
 
 function masterDriverOrbitLoop() {
+    const now = performance.now();
+    let deltaTimeMs = now - lastTime;
+    
+    // SAFEGUARD: If the tab loses focus or heavily stutters, force a standard frame step
+    if (deltaTimeMs > 100) deltaTimeMs = 16.67; 
+    
+    const dt = deltaTimeMs / 16.67; 
+    lastTime = now;
+
     if (isDragging) {
         // Position bound to pointer coordinates via listeners
     } else {
-        // Dynamic true audio kinetic momentum wheel calculation
         audioVelocity *= 0.94; 
         if (settings.audioReactive && audioBass > 0.4) {
             audioVelocity += (audioBass - 0.4) * 0.0028; 
@@ -1428,10 +1440,10 @@ function masterDriverOrbitLoop() {
         if (audioVelocity > 0.02) audioVelocity = 0.02; 
 
         if (Math.abs(angularVelocity) > 0.00005) {
-            globalRotation += angularVelocity * 16.67;
-            angularVelocity *= 0.96;
+            globalRotation += angularVelocity * (dt * 16.67);
+            angularVelocity *= Math.pow(0.96, dt); 
         } else {
-            globalRotation = (globalRotation + ROTATION_SPEED + audioVelocity) % (Math.PI * 2);
+            globalRotation = (globalRotation + (ROTATION_SPEED + audioVelocity) * dt) % (Math.PI * 2);
         }
     }
 
