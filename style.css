@@ -126,6 +126,25 @@ body, html {
     filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.4));
 }
 
+/* Champion Victory Glow Backdrop for Center Trophy Slot */
+.trophy-slot::before {
+    content: '';
+    position: absolute;
+    width: 140%;
+    height: 140%;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--champion-glow, transparent) 0%, transparent 70%);
+    z-index: -1;
+    opacity: 0.8;
+    mix-blend-mode: screen;
+    animation: championPulse 3s infinite ease-in-out;
+}
+
+@keyframes championPulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; filter: brightness(1); }
+    50% { transform: scale(1.15); opacity: 0.9; filter: brightness(1.4); }
+}
+
 .bracket-node img.flag-img {
     width: 100%;
     height: 100%;
@@ -548,4 +567,60 @@ body, html {
 @keyframes autoScroll {
     0% { transform: translate3d(0, 0, 0); }
     100% { transform: translate3d(0, -50%, 0); } 
+}
+
+/* PREMIUM CHAMPION VICTORY BANNER */
+.victory-banner {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(10, 10, 10, 0.85));
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 
+                inset 0 0 10px rgba(var(--champion-glow), 0.1);
+    transform: translate3d(0, -10px, 0);
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Clear hidden state utility */
+.victory-banner.hidden {
+    display: none !important;
+}
+
+/* Active state for smooth slide-down entrance */
+.victory-banner.show {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+}
+
+.victory-banner .banner-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #d4af37;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.victory-banner .banner-main {
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.victory-banner .mini-flag {
+    width: 24px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }

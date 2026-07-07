@@ -48,6 +48,9 @@ let globalTournamentStats = {};
 // for frame rate limiting
 let lastTime = performance.now();
 
+//for final winner
+let absoluteChampionIso = null; // Tracks tournament winner for custom particle looping
+
 
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
@@ -469,6 +472,46 @@ async function fetchAndApplyLiveScores() {
             }
         }
 
+        // === FIXED PLACEMENT: INSIDE TRY BLOCK SO eventMap IS ACCESSIBLE ===
+        const gf1 = bracketTree[4][0];
+        const gf2 = bracketTree[4][1];
+        
+        if (gf1 && gf2 && !gf1.isEmpty && !gf2.isEmpty) {
+            const finalMatchKey = [gf1.label, gf2.label].sort().join('|');
+            const finalMatch = eventMap.get(finalMatchKey);
+            
+            if (finalMatch) {
+                const competitors = finalMatch?.competitions?.[0]?.competitors || [];
+                const goldenWinner = competitors.find(c => c.winner === true);
+                
+                if (goldenWinner) {
+                    absoluteChampionIso = ESPN_TO_ISO[String(goldenWinner.team?.abbreviation || '').toUpperCase()];
+                    
+                    if (absoluteChampionIso) {
+                        if (absoluteChampionIso === gf1.label) gf2.isLoser = true;
+                        if (absoluteChampionIso === gf2.label) gf1.isLoser = true;
+                        
+                        const champColor = FLAG_COLORS[absoluteChampionIso] || '#d4af37';
+                        document.documentElement.style.setProperty('--champion-glow', champColor);
+                        
+                        const bannerEl = document.getElementById('victoryBanner');
+                        if (bannerEl && bannerEl.classList.contains('hidden')) {
+                            bannerEl.innerHTML = `
+                                <div class="banner-title">🏆 Tournament Champion 🏆</div>
+                                <div class="banner-main">
+                                    <img src="https://flagcdn.com/w40/${absoluteChampionIso}.png" class="mini-flag" alt="flag">
+                                    <span>${absoluteChampionIso.toUpperCase()} IS VICTORIOUS!</span>
+                                </div>
+                            `;
+                            bannerEl.classList.remove('hidden');
+                            setTimeout(() => bannerEl.classList.add('show'), 50);
+                        }
+                    }
+                }
+            }
+        }
+        // ===================================================================
+
         refreshNodeDOMStructures();
         syncLayoutPositions();
         drawCanvasContext();
@@ -488,93 +531,19 @@ async function fetchAndApplyLiveScores() {
 
                 if (!child1.isEmpty && !child2.isEmpty) {
                     const mockMatch = {
-                        status: {
-                            type: {
-                                state: "post",
-                                detail: "Final Score"
-                            }
-                        },
+                        status: { type: { state: "post", detail: "Final Score" } },
                         date: new Date().toISOString(),
                         competitions: [{
-                                altGameNote: round === 1 ? "Round of 16" : round === 2 ? "Quarter-Finals" : round === 3 ? "Semi-Finals" : "Grand Final",
-                                details: [{
-                                        clock: {
-                                            displayValue: "14'"
-                                        },
-                                        type: {
-                                            text: "Goal"
-                                        },
-                                        athletesInvolved: [{
-                                                displayName: "J. Quiñones"
-                                            }
-                                        ]
-                                    }, {
-                                        clock: {
-                                            displayValue: "44'"
-                                        },
-                                        type: {
-                                            text: "Yellow Card"
-                                        },
-                                        athletesInvolved: [{
-                                                displayName: "M. Galarza"
-                                            }
-                                        ]
-                                    }
-                                ],
-                                competitors: [{
-                                        homeAway: "home",
-                                        team: {
-                                            displayName: child1.label.toUpperCase(),
-                                            abbreviation: child1.label.toUpperCase()
-                                        },
-                                        score: "3",
-                                        winner: true,
-                                        statistics: [{
-                                                name: "possessionPct",
-                                                displayValue: "58%"
-                                            }, {
-                                                name: "totalShots",
-                                                displayValue: "16"
-                                            }, {
-                                                name: "shotsOnTarget",
-                                                displayValue: "7"
-                                            }, {
-                                                name: "wonCorners",
-                                                displayValue: "6"
-                                            }, {
-                                                name: "shotAssists",
-                                                displayValue: "11"
-                                            }
-                                        ]
-                                    }, {
-                                        homeAway: "away",
-                                        team: {
-                                            displayName: child2.label.toUpperCase(),
-                                            abbreviation: child2.label.toUpperCase()
-                                        },
-                                        score: "1",
-                                        winner: false,
-                                        statistics: [{
-                                                name: "possessionPct",
-                                                displayValue: "42%"
-                                            }, {
-                                                name: "totalShots",
-                                                displayValue: "8"
-                                            }, {
-                                                name: "shotsOnTarget",
-                                                displayValue: "2"
-                                            }, {
-                                                name: "wonCorners",
-                                                displayValue: "3"
-                                            }, {
-                                                name: "shotAssists",
-                                                displayValue: "4"
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
+                            altGameNote: round === 1 ? "Round of 16" : round === 2 ? "Quarter-Finals" : round === 3 ? "Semi-Finals" : "Grand Final",
+                            details: [
+                                { clock: { displayValue: "14'" }, type: { text: "Goal" }, athletesInvolved: [{ displayName: "J. Quiñones" }] },
+                                { clock: { displayValue: "44'" }, type: { text: "Yellow Card" }, athletesInvolved: [{ displayName: "M. Galarza" }] }
+                            ],
+                            competitors: [
+                                { homeAway: "home", team: { displayName: child1.label.toUpperCase(), abbreviation: child1.label.toUpperCase() }, score: "3", winner: true, statistics: [{ name: "possessionPct", displayValue: "58%" }, { name: "totalShots", displayValue: "16" }, { name: "shotsOnTarget", displayValue: "7" }, { name: "wonCorners", displayValue: "6" }, { name: "shotAssists", displayValue: "11" }] },
+                                { homeAway: "away", team: { displayName: child2.label.toUpperCase(), abbreviation: child2.label.toUpperCase() }, score: "1", winner: false, statistics: [{ name: "possessionPct", displayValue: "42%" }, { name: "totalShots", displayValue: "8" }, { name: "shotsOnTarget", displayValue: "2" }, { name: "wonCorners", displayValue: "3" }, { name: "shotAssists", displayValue: "4" }] }
+                            ]
+                        }]
                     };
 
                     child1.matchDataRef = mockMatch;
@@ -587,6 +556,7 @@ async function fetchAndApplyLiveScores() {
                 }
             }
         }
+
         refreshNodeDOMStructures();
         syncLayoutPositions();
         drawCanvasContext();
@@ -1465,6 +1435,14 @@ function masterDriverOrbitLoop() {
             }
         }
     }
+	
+	// --- NEW CODE: CHAMPION FIREWORKS LOOP ---
+    if (absoluteChampionIso && !isLoadAnimating && Math.random() < 0.15) {
+        // Launches continuous stylized bursts out from the center axis coordinates
+        const champColor = FLAG_COLORS[absoluteChampionIso] || '#d4af37';
+        triggerParticleBlast(cachedCx, cachedCy, champColor);
+    }
+    // -----------------------------------------
 
     drawCanvasContext();
 
