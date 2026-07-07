@@ -85,6 +85,8 @@ body, html {
     -webkit-user-select: none;
     z-index: 5;
     touch-action: none;
+	/* Promotes rotating flags to their own layer context immediately */
+    will-change: transform;
 }
 
 .bracket-node.round-0 {
@@ -376,6 +378,10 @@ body, html {
         width: 100%; 
         transform: translate3d(100%, 0, 0); 
         padding: 50px 20px;
+		/* Turning off complex blurs saves the layout from thrashing on canvas updates below */
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(14, 14, 14, 0.98); /* Made slightly more opaque to ensure readability */
     }
     .stats-panel.panel-open {
         transform: translate3d(0, 0, 0);

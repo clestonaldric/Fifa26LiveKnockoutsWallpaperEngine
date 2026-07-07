@@ -4,6 +4,7 @@ const container = document.getElementById('nodesOverlay');
 const statsPanel = document.getElementById('statsPanel');
 const statsContent = document.getElementById('statsContent');
 const closePanelBtn = document.getElementById('closePanelBtn');
+const isAndroid = /Android/i.test(navigator.userAgent);
 
 // Define concentric track radii proportions (measured in % of viewport height/width minimum)
 const RADII_PROPORTIONS = [43.5, 34.0, 25.0, 16.5, 9.8];
@@ -1262,18 +1263,36 @@ function drawCanvasContext() {
             const isWinnerTrack = (!node.isEmpty && parentNode.label === node.label);
             const isHoveredTrack = (hoveredTeam && node.label === hoveredTeam && parentNode.label === hoveredTeam);
 
-            if (isHoveredTrack) {
+if (isHoveredTrack) {
                 const teamColor = FLAG_COLORS[node.label] || '#ffffff';
                 ctx.strokeStyle = teamColor;
                 ctx.lineWidth = settings.winnerLineBase + 3.5 + (effectiveAudioBass * settings.glowIntensity * 2.0);
-                ctx.shadowColor = teamColor;
-                ctx.shadowBlur = 20 + (effectiveAudioBass * settings.glowIntensity * 10);
+                
+                if (isAndroid) {
+                    ctx.save();
+                    ctx.lineWidth = ctx.lineWidth * 2.2;
+                    ctx.strokeStyle = teamColor + '33'; // Appends 20% hex alpha opacity for fake glow
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.shadowColor = teamColor;
+                    ctx.shadowBlur = 20 + (effectiveAudioBass * settings.glowIntensity * 10);
+                }
             } else if (isWinnerTrack) {
                 const teamColor = FLAG_COLORS[node.label] || '#d4af37';
                 ctx.strokeStyle = teamColor;
                 ctx.lineWidth = settings.winnerLineBase + (effectiveAudioBass * settings.glowIntensity * 2.0);
-                ctx.shadowColor = teamColor;
-                ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
+                
+                if (isAndroid) {
+                    ctx.save();
+                    ctx.lineWidth = ctx.lineWidth * 2.0;
+                    ctx.strokeStyle = teamColor + '26'; // Appends 15% hex alpha opacity
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.shadowColor = teamColor;
+                    ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
+                }
             } else if (node.isLive) {
                 const liveGradient = ctx.createRadialGradient(
                         cachedCx, cachedCy, currentRadius,
@@ -1286,26 +1305,28 @@ function drawCanvasContext() {
                 ctx.strokeStyle = liveGradient;
                 ctx.lineWidth = 3.0 + (effectiveAudioBass * settings.glowIntensity * 4);
 
-                ctx.shadowColor = '#ff007f';
-                ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12);
+                if (!isAndroid) {
+                    ctx.shadowColor = '#ff007f';
+                    ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12);
+                }
             } else {
                 const distanceFromCenter = (TOTAL_ROUNDS - 1) - round;
                 const baseGrid = settings.gridColor;
-                const gold = {
-                    r: 212,
-                    g: 175,
-                    b: 55
-                };
+                const gold = { r: 212, g: 175, b: 55 };
                 const glowFade = Math.max(0, Math.min(1, (3 - distanceFromCenter) / 2));
                 const blend = (valueA, valueB) => Math.round(valueA * glowFade + valueB * (1 - glowFade));
                 const blendedR = blend(gold.r, baseGrid.r);
                 const blendedG = blend(gold.g, baseGrid.g);
                 const blendedB = blend(gold.b, baseGrid.b);
                 const alpha = 0.12 + glowFade * 0.28 + effectiveAudioBass * 0.05;
+                
                 ctx.strokeStyle = `rgba(${blendedR}, ${blendedG}, ${blendedB}, ${Math.min(alpha, 0.35)})`;
                 ctx.lineWidth = 1.0 + glowFade * 0.25 + (effectiveAudioBass * settings.glowIntensity * 0.65);
-                ctx.shadowBlur = glowFade > 0 ? 2 + (effectiveAudioBass * 6) : 0;
-                ctx.shadowColor = `rgba(212, 175, 55, ${0.15 + glowFade * 0.35})`;
+                
+                if (!isAndroid) {
+                    ctx.shadowBlur = glowFade > 0 ? 2 + (effectiveAudioBass * 6) : 0;
+                    ctx.shadowColor = `rgba(212, 175, 55, ${0.15 + glowFade * 0.35})`;
+                }
             }
 
             let currentLineProgress = 1;
@@ -1449,7 +1470,8 @@ function triggerParticleBlast(x, y, color) {
 }
 
 function handleDisplayResize() {
-    const dpr = window.devicePixelRatio || 1;
+// Cap DPR at 2 for performance, avoiding 3x or 4x texture overloads on Android flagships
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = container.clientWidth * dpr;
     canvas.height = container.clientHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
