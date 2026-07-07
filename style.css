@@ -569,8 +569,11 @@ body, html {
     100% { transform: translate3d(0, -50%, 0); } 
 }
 
-/* PREMIUM CHAMPION VICTORY BANNER */
+/* PREMIUM CHAMPION VICTORY BANNER (VARIABLE CONTROLLED) */
 .victory-banner {
+    /* 1. Define the desktop fallback variable value */
+    --banner-tx: 0px; 
+    
     background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(10, 10, 10, 0.85));
     border: 1px solid rgba(212, 175, 55, 0.4);
     border-radius: 8px;
@@ -579,13 +582,15 @@ body, html {
     text-align: center;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 
                 inset 0 0 10px rgba(var(--champion-glow), 0.1);
-    transform: translate3d(0, -10px, 0);
-    opacity: 0;
-    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    
+    /* 2. Bind the transformation loop directly to the variable */
+    transform: translate3d(var(--banner-tx), -10px, 0);
 }
 
 /* Clear hidden state utility */
@@ -595,7 +600,7 @@ body, html {
 
 /* Active state for smooth slide-down entrance */
 .victory-banner.show {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(var(--banner-tx), 0, 0);
     opacity: 1;
 }
 
@@ -623,4 +628,22 @@ body, html {
     object-fit: cover;
     border-radius: 2px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* ==========================================================================
+   FINAL MOBILE VIEWPORT OVERRIDES (MUST LIVE AT THE ABSOLUTE BOTTOM)
+   ========================================================================== */
+@media (max-width: 480px) {
+    .victory-banner {
+        /* Overrides the desktop 0px variable baseline safely due to placement order */
+        --banner-tx: -50% !important; 
+        
+        position: absolute !important;
+        top: 16px !important;
+        left: 50% !important;
+        width: calc(100% - 32px) !important;
+        max-width: 420px !important;
+        z-index: 75 !important; 
+        margin-bottom: 0 !important;
+    }
 }

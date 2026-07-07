@@ -375,6 +375,42 @@ function refreshNodeDOMStructures() {
     }
 }
 
+function showVictoryBanner(winnerIso) {
+    const bannerEl = document.getElementById('victoryBanner');
+    if (!bannerEl) return;
+
+    // 1. Inject content
+    bannerEl.innerHTML = `
+        <div class="banner-title">🏆 Tournament Champion 🏆</div>
+        <div class="banner-main">
+            <img src="https://flagcdn.com/w40/${winnerIso}.png" class="mini-flag" alt="flag">
+            <span>${winnerIso.toUpperCase()} IS VICTORIOUS!</span>
+        </div>
+    `;
+
+    // 2. Responsively migrate DOM parent nodes
+    if (window.innerWidth <= 480) {
+        // On phones: Pull banner out of the sidebar and drop it directly into the wallpaper viewport root
+        const wallpaperRoot = document.querySelector('.wallpaper-container');
+        if (wallpaperRoot && bannerEl.parentNode !== wallpaperRoot) {
+            wallpaperRoot.appendChild(bannerEl);
+        }
+    } else {
+        // On desktops: Keep/Return banner inside the stats panel right above navigation tabs
+        const statsPanelEl = document.getElementById('statsPanel');
+        if (statsPanelEl && bannerEl.parentNode !== statsPanelEl) {
+            const tabsEl = document.querySelector('.panel-toggle-tabs');
+            statsPanelEl.insertBefore(bannerEl, tabsEl);
+        }
+        // Smoothly expand desktop panel container view
+        statsPanelEl.classList.add('panel-open');
+    }
+
+    // 3. Execute CSS transitions
+    bannerEl.classList.remove('hidden');
+    setTimeout(() => bannerEl.classList.add('show'), 50);
+}
+
 async function fetchAndApplyLiveScores() {
     try {
         const response = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260720');
@@ -494,18 +530,7 @@ async function fetchAndApplyLiveScores() {
                         const champColor = FLAG_COLORS[absoluteChampionIso] || '#d4af37';
                         document.documentElement.style.setProperty('--champion-glow', champColor);
                         
-                        const bannerEl = document.getElementById('victoryBanner');
-                        if (bannerEl && bannerEl.classList.contains('hidden')) {
-                            bannerEl.innerHTML = `
-                                <div class="banner-title">🏆 Tournament Champion 🏆</div>
-                                <div class="banner-main">
-                                    <img src="https://flagcdn.com/w40/${absoluteChampionIso}.png" class="mini-flag" alt="flag">
-                                    <span>${absoluteChampionIso.toUpperCase()} IS VICTORIOUS!</span>
-                                </div>
-                            `;
-                            bannerEl.classList.remove('hidden');
-                            setTimeout(() => bannerEl.classList.add('show'), 50);
-                        }
+						showVictoryBanner(absoluteChampionIso);
                     }
                 }
             }
