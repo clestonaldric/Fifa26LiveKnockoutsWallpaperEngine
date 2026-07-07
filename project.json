@@ -55,6 +55,12 @@
 				"type" : "color",
 				"value" : "8 8 8"
 			},
+			"show2030Countdown" : 
+			{
+				"text" : "Show 2030 Centennial Countdown",
+				"type" : "bool",
+				"value" : true
+			},
 			"showCenterGlow" : 
 			{
 				"index" : 4,
@@ -62,11 +68,6 @@
 				"text" : "Show Center Glow",
 				"type" : "bool",
 				"value" : true
-			},
-			"show2030Countdown": {
-			"text": "Show 2030 Centennial Countdown",
-			"type": "bool",
-			"value": true
 			}
 		},
 		"supportsaudioprocessing" : true
@@ -78,8 +79,8 @@
 	"snapshotoverlay" : "",
 	"tags" : [ "Sports" ],
 	"title" : "FIFA 26:Live Knockouts Revolve",
-	"type" : "web",
-	"version" : 9,
+	"type" : "Web",
+	"version" : 10,
 	"visibility" : "public",
 	"workshopid" : "3758609321",
 	"workshopurl" : "steam://url/CommunityFilePage/3758609321"
