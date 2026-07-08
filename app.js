@@ -4,14 +4,19 @@ const container = document.getElementById('nodesOverlay');
 const statsPanel = document.getElementById('statsPanel');
 const statsContent = document.getElementById('statsContent');
 const closePanelBtn = document.getElementById('closePanelBtn');
-const isAndroid = /Android/i.test(navigator.userAgent);
+
+// UPGRADED: Expanded mobile runtime engine check to capture iOS/iPadOS devices smoothly
+const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 // Define concentric track radii proportions (measured in % of viewport height/width minimum)
 const RADII_PROPORTIONS = [43.5, 34.0, 25.0, 16.5, 9.8];
 const TOTAL_ROUNDS = 5;
 
 let bracketTree = [];
-let particles = [];
+
+// UPGRADED: Object Pool Memory Allocation to prevent Heap Fragmentation and Garbage Collection stutters
+const MAX_PARTICLES = 400;
+const particlePool = [];
 
 // Global dimension caching properties to stop frame dropping and layout thrashing
 let cachedCx = 0;
@@ -45,12 +50,11 @@ let liveDirtyTeams = [];
 let liveKeyPassesTeams = []; // Tracks team key passes (shot assists)
 let globalTournamentStats = {};
 
-// for frame rate limiting
+// For frame rate limiting
 let lastTime = performance.now();
 
-//for final winner
+// For final winner
 let absoluteChampionIso = null; // Tracks tournament winner for custom particle looping
-
 
 // User-customisable settings (Wallpaper Engine will call applyUserProperties)
 const settings = {
@@ -58,26 +62,16 @@ const settings = {
     glowIntensity: 1.0,
     showCenterGlow: true,
     audioReactive: true,
-	show2030Countdown: true, // NEW: Tracks whether the HUD bar is allowed to render
-    gridColor: {
-        r: 255,
-        g: 255,
-        b: 255
-    },
-    backgroundColor: {
-        r: 8,
-        g: 8,
-        b: 8
-    },
+    show2030Countdown: true, // Tracks whether the HUD bar is allowed to render
+    gridColor: { r: 255, g: 255, b: 255 },
+    backgroundColor: { r: 8, g: 8, b: 8 },
     winnerLineBase: 2.0
 };
 
 function parseWallpaperColor(property) {
-    if (!property)
-        return null;
+    if (!property) return null;
     const color = property.color || property.value || property;
-    if (!color)
-        return null;
+    if (!color) return null;
     if (typeof color === 'string') {
         const cleaned = color.trim();
         const hex = cleaned.startsWith('#') ? cleaned.slice(1) : cleaned;
@@ -150,73 +144,23 @@ const initialTeams = [
 ];
 
 const FLAG_COLORS = {
-    "de": "#FFD100",
-    "py": "#D52B1E",
-    "fr": "#002395",
-    "se": "#006AA7",
-    "za": "#007A4D",
-    "ca": "#FF0000",
-    "nl": "#21468B",
-    "ma": "#C1272D",
-    "pt": "#006600",
-    "hr": "#FF0000",
-    "es": "#FFC400",
-    "at": "#EF3340",
-    "us": "#B22234",
-    "ba": "#002395",
-    "be": "#FFCD00",
-    "sn": "#00853F",
-    "gh": "#FCD116",
-    "co": "#FCD116",
-    "dz": "#006233",
-    "ch": "#DA291C",
-    "eg": "#C09304",
-    "au": "#00008B",
-    "cv": "#0038A8",
-    "ar": "#74ACDF",
-    "cd": "#007FFF",
-    "gb-eng": "#CE1126",
-    "ec": "#FFDD00",
-    "mx": "#006847",
-    "no": "#EF3340",
-    "ci": "#FF8200",
-    "jp": "#BC002D",
-    "br": "#009739"
+    "de": "#FFD100", "py": "#D52B1E", "fr": "#002395", "se": "#006AA7",
+    "za": "#007A4D", "ca": "#FF0000", "nl": "#21468B", "ma": "#C1272D",
+    "pt": "#006600", "hr": "#FF0000", "es": "#FFC400", "at": "#EF3340",
+    "us": "#B22234", "ba": "#002395", "be": "#FFCD00", "sn": "#00853F",
+    "gh": "#FCD116", "co": "#FCD116", "dz": "#006233", "ch": "#DA291C",
+    "eg": "#C09304", "au": "#00008B", "cv": "#0038A8", "ar": "#74ACDF",
+    "cd": "#007FFF", "gb-eng": "#CE1126", "ec": "#FFDD00", "mx": "#006847",
+    "no": "#EF3340", "ci": "#FF8200", "jp": "#BC002D", "br": "#009739"
 };
 
 const ESPN_TO_ISO = {
-    "GER": "de",
-    "PAR": "py",
-    "FRA": "fr",
-    "SWE": "se",
-    "RSA": "za",
-    "CAN": "ca",
-    "NED": "nl",
-    "MAR": "ma",
-    "POR": "pt",
-    "CRO": "hr",
-    "ESP": "es",
-    "AUT": "at",
-    "USA": "us",
-    "BIH": "ba",
-    "BEL": "be",
-    "SEN": "sn",
-    "GHA": "gh",
-    "COL": "co",
-    "ALG": "dz",
-    "SUI": "ch",
-    "EGY": "eg",
-    "AUS": "au",
-    "CPV": "cv",
-    "ARG": "ar",
-    "COD": "cd",
-    "ENG": "gb-eng",
-    "ECU": "ec",
-    "MEX": "mx",
-    "NOR": "no",
-    "CIV": "ci",
-    "JPN": "jp",
-    "BRA": "br"
+    "GER": "de", "PAR": "py", "FRA": "fr", "SWE": "se", "RSA": "za", "CAN": "ca",
+    "NED": "nl", "MAR": "ma", "POR": "pt", "CRO": "hr", "ESP": "es", "AUT": "at",
+    "USA": "us", "BIH": "ba", "BEL": "be", "SEN": "sn", "GHA": "gh", "COL": "co",
+    "ALG": "dz", "SUI": "ch", "EGY": "eg", "AUS": "au", "CPV": "cv", "ARG": "ar",
+    "COD": "cd", "ENG": "gb-eng", "ECU": "ec", "MEX": "mx", "NOR": "no", "CIV": "ci",
+    "JPN": "jp", "BRA": "br"
 };
 
 const COUNTRY_NAMES = {
@@ -230,8 +174,21 @@ const COUNTRY_NAMES = {
     "no": "Norway", "ci": "Ivory Coast", "jp": "Japan", "br": "Brazil"
 };
 
+// UPGRADED: Recycled Particle Blueprint Pattern
 class SparkParticle {
-    constructor(x, y, color) {
+    constructor() {
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = 0;
+        this.alpha = 0;
+        this.decay = 0;
+        this.color = '#ffffff';
+        this.active = false;
+    }
+
+    spawn(x, y, color) {
         this.x = x;
         this.y = y;
         this.color = color;
@@ -242,15 +199,23 @@ class SparkParticle {
         this.radius = Math.random() * 2.5 + 1.5;
         this.alpha = 1;
         this.decay = Math.random() * 0.015 + 0.012;
+        this.active = true;
     }
+
     update() {
+        if (!this.active) return;
         this.x += this.vx;
         this.y += this.vy;
         this.vx *= 0.97;
         this.vy *= 0.97;
         this.alpha -= this.decay;
+        if (this.alpha <= 0) {
+            this.active = false; // Graceful return to structural memory pool
+        }
     }
+
     draw(context) {
+        if (!this.active) return;
         context.save();
         context.globalAlpha = this.alpha;
         context.beginPath();
@@ -260,6 +225,23 @@ class SparkParticle {
         context.shadowBlur = 12;
         context.fill();
         context.restore();
+    }
+}
+
+function initializeParticlePool() {
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+        particlePool.push(new SparkParticle());
+    }
+}
+
+function triggerParticleBlast(x, y, color) {
+    let spawnedCount = 0;
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+        if (!particlePool[i].active) {
+            particlePool[i].spawn(x, y, color);
+            spawnedCount++;
+            if (spawnedCount >= 65) break; 
+        }
     }
 }
 
@@ -303,28 +285,23 @@ function getRoundProgress(round) {
 }
 
 function getTeamFormHTML(comp) {
-    if (!comp || !comp.form)
-        return '';
+    if (!comp || !comp.form) return '';
     const formChars = comp.form.split('');
     return `
         <div class="form-momentum-container" style="display:flex; gap:4px; align-items:center; margin-top:8px;">
             <span style="font-size:10px; text-transform:uppercase; font-weight:700; color:rgba(255,255,255,0.4); margin-right:4px;">Form:</span>
             ${formChars.map(char => {
-        let color = '#555';
-        if (char === 'W')
-            color = '#00f5ff';
-        if (char === 'L')
-            color = '#ff3b30';
-        if (char === 'D')
-            color = '#ffcc00';
-        return `<span style="background:${color}; color:#080808; font-size:9px; font-weight:800; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; border-radius:3px; text-shadow:none;">${char}</span>`;
-    }).join('')}
+                let color = '#555';
+                if (char === 'W') color = '#00f5ff';
+                if (char === 'L') color = '#ff3b30';
+                if (char === 'D') color = '#ffcc00';
+                return `<span style="background:${color}; color:#080808; font-size:9px; font-weight:800; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; border-radius:3px; text-shadow:none;">${char}</span>`;
+            }).join('')}
         </div>
     `;
 }
 
 function refreshNodeDOMStructures() {
-	// --- NEW: COMPILE A MASTER SET OF ALL COMPLETELY ELIMINATED TEAMS ---
     const eliminatedTeams = new Set();
     for (let r = 0; r < TOTAL_ROUNDS; r++) {
         for (let i = 0; i < bracketTree[r].length; i++) {
@@ -333,7 +310,7 @@ function refreshNodeDOMStructures() {
             }
         }
     }
-	
+    
     for (let round = 0; round < TOTAL_ROUNDS; round++) {
         bracketTree[round].forEach((node, index) => {
             let nodeDOM = document.getElementById(`node-${round}-${index}`);
@@ -342,11 +319,10 @@ function refreshNodeDOMStructures() {
                 nodeDOM.id = `node-${round}-${index}`;
 
                 nodeDOM.addEventListener('pointerdown', (event) => {
-                    if (event.button !== 0)
-                        return;
+                    if (event.button !== 0) return;
                     hasDraggedSignificant = false;
 
-                    const clickTrackerUp = (upEvent) => {
+                    const clickTrackerUp = () => {
                         window.removeEventListener('pointerup', clickTrackerUp);
                         if (!hasDraggedSignificant) {
                             handleNodeClickEvent(nodeDOM, node);
@@ -370,19 +346,14 @@ function refreshNodeDOMStructures() {
             }
 
             let stateClass = 'empty';
-            if (!node.isEmpty)
-                stateClass = 'advanced';
-			// --- FIX: GRAY OUT IF THIS NODE LOST *OR* IF THE TEAM IS ELIMINATED ANYWHERE ---
-            if (node.isLoser || (node.label && eliminatedTeams.has(node.label))) {
+            if ((node.isLoser || (node.label && eliminatedTeams.has(node.label))) && !absoluteChampionIso) {
                 stateClass = 'loser';
+            } else if (!node.isEmpty) {
+                stateClass = 'advanced'; 
             }
-            // ------------------------------------------------------------------------------
-            if (node.isLoser)
-                stateClass = 'loser';
-            if (node.isLive)
-                stateClass += ' live-pulse';
-            if (nodeDOM.classList.contains('selected-view'))
-                stateClass += ' selected-view';
+
+            if (node.isLive) stateClass += ' live-pulse';
+            if (nodeDOM.classList.contains('selected-view')) stateClass += ' selected-view';
 
             nodeDOM.className = `bracket-node round-${round} ${stateClass}`;
 
@@ -403,16 +374,13 @@ function refreshNodeDOMStructures() {
 }
 	
 function showVictoryBanner(winnerIso) {
-    // --- CELEBRATION EFFECTS ---
-    // 1. Trigger the cinematic screen strobe
     const flashEl = document.getElementById('victoryFlash');
     if (flashEl) {
         flashEl.classList.remove('flash-bang');
-        void flashEl.offsetWidth; // Forces layout engine reflow to cleanly restart animation
+        void flashEl.offsetWidth; // Forces engine reflow context cleanly
         flashEl.classList.add('flash-bang');
     }
 
-    // 2. Trigger the majestic trophy zoom
     const trophyEl = document.getElementById('centerTrophy');
     if (trophyEl) {
         trophyEl.classList.add('champion-zoom');
@@ -421,50 +389,42 @@ function showVictoryBanner(winnerIso) {
     const bannerEl = document.getElementById('victoryBanner');
     if (!bannerEl) return;
 
-    // Fetch the full country name from our new dictionary, fallback to ISO uppercase if missing
     const fullCountryName = COUNTRY_NAMES[winnerIso] || winnerIso.toUpperCase();
 
-    // 3. Inject FIFA 26 specific layout content
     bannerEl.innerHTML = `
         <div class="banner-title">🏆 FIFA WORLD CUP 2026 CHAMPION 🏆</div>
         <div class="banner-main">
             <img src="https://flagcdn.com/w40/${winnerIso}.png" class="mini-flag" alt="flag">
-            <span>${fullCountryName.toUpperCase()}</span>
+            <span>${escapeHtml(fullCountryName.toUpperCase())}</span>
         </div>
     `;
 
-    // 4. Responsively migrate DOM parent nodes
     if (window.innerWidth <= 480) {
-        // On phones: Pull banner out of the sidebar and drop it directly into the wallpaper viewport root
         const wallpaperRoot = document.querySelector('.wallpaper-container');
         if (wallpaperRoot && bannerEl.parentNode !== wallpaperRoot) {
             wallpaperRoot.appendChild(bannerEl);
         }
     } else {
-        // On desktops: Keep/Return banner inside the stats panel right above navigation tabs
         const statsPanelEl = document.getElementById('statsPanel');
         if (statsPanelEl && bannerEl.parentNode !== statsPanelEl) {
             const tabsEl = document.querySelector('.panel-toggle-tabs');
             statsPanelEl.insertBefore(bannerEl, tabsEl);
         }
-        // Smoothly expand desktop panel container view
         statsPanelEl.classList.add('panel-open');
     }
 
-    // 5. Execute CSS transitions
     bannerEl.classList.remove('hidden');
     setTimeout(() => bannerEl.classList.add('show'), 50);
 }
 
+// UPGRADED: Linear Recursive timeout structure prevents overlapping concurrent API calls
 async function fetchAndApplyLiveScores() {
     try {
         const response = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260720');
-        if (!response.ok)
-            throw new Error("API Network error response.");
+        if (!response.ok) throw new Error("API Network error response.");
 
         const data = await response.json();
-        if (!data || !Array.isArray(data.events))
-            return;
+        if (!data || !Array.isArray(data.events)) return;
 
         liveScorers = computeLiveScorers(data.events);
         liveAssistsTeams = computeLiveTeamAssists(data.events);
@@ -479,12 +439,10 @@ async function fetchAndApplyLiveScores() {
         const eventMap = new Map();
         for (const evt of data.events) {
             const comps = evt?.competitions?.[0]?.competitors;
-            if (!Array.isArray(comps) || comps.length < 2)
-                continue;
+            if (!Array.isArray(comps) || comps.length < 2) continue;
             const abbr0 = ESPN_TO_ISO[String(comps[0]?.team?.abbreviation || '').toUpperCase()];
             const abbr1 = ESPN_TO_ISO[String(comps[1]?.team?.abbreviation || '').toUpperCase()];
-            if (!abbr0 || !abbr1)
-                continue;
+            if (!abbr0 || !abbr1) continue;
             eventMap.set([abbr0, abbr1].sort().join('|'), evt);
         }
 
@@ -553,7 +511,7 @@ async function fetchAndApplyLiveScores() {
             }
         }
 
-        // === FIXED PLACEMENT: INSIDE TRY BLOCK SO eventMap IS ACCESSIBLE ===
+        // === EVALUATE GRAND FINAL WINNER ===
         const gf1 = bracketTree[4][0];
         const gf2 = bracketTree[4][1];
         
@@ -572,28 +530,19 @@ async function fetchAndApplyLiveScores() {
                         if (absoluteChampionIso === gf1.label) gf2.isLoser = true;
                         if (absoluteChampionIso === gf2.label) gf1.isLoser = true;
                         
-                        const champColor = FLAG_COLORS[absoluteChampionIso] || '#d4af37';
-                        document.documentElement.style.setProperty('--champion-glow', champColor);
+                        document.documentElement.style.setProperty('--champion-glow', '#d4af37'); 
+                        showVictoryBanner(absoluteChampionIso);
                         
-						showVictoryBanner(absoluteChampionIso);
-						
-						// ----------------==================================----------------
-                        // FREEZE THE WALLPAPER IN ITS FINAL CELEBRATION STATE
-                        // ----------------==================================----------------
-                        if (window.tournamentPollingInterval) {
-                            clearInterval(window.tournamentPollingInterval);
-                            window.tournamentPollingInterval = null;
-                            console.log("🏆 FIFA World Cup 2026 concluded. Polling interval cleared. Wallpaper locked in Hall of Fame mode.");
-							
-							// Kick off a persistent countdown widget to the 2030 tournament opening match
-							initializeCentennialCupCountdown();
+                        if (window.tournamentPollingTimeout) {
+                            clearTimeout(window.tournamentPollingTimeout);
+                            window.tournamentPollingTimeout = null;
                         }
-                        // ----------------==================================----------------
+                        initializeCentennialCupCountdown();
+                        return; 
                     }
                 }
             }
         }
-        // ===================================================================
 
         refreshNodeDOMStructures();
         syncLayoutPositions();
@@ -640,12 +589,29 @@ async function fetchAndApplyLiveScores() {
             }
         }
 
+        const gf1 = bracketTree[4][0];
+        const gf2 = bracketTree[4][1];
+        if (gf1 && gf2 && !gf1.isEmpty && !gf2.isEmpty && !absoluteChampionIso) {
+            absoluteChampionIso = gf1.label; 
+            document.documentElement.style.setProperty('--champion-glow', '#d4af37'); 
+            showVictoryBanner(absoluteChampionIso);
+            if (window.tournamentPollingTimeout) {
+                clearTimeout(window.tournamentPollingTimeout);
+                window.tournamentPollingTimeout = null;
+            }
+            initializeCentennialCupCountdown();
+        }
+
         refreshNodeDOMStructures();
         syncLayoutPositions();
         drawCanvasContext();
 
         if (isLoadAnimating && loadProgress === 0) {
             animateLoadLoop();
+        }
+    } finally {
+        if (!absoluteChampionIso) {
+            window.tournamentPollingTimeout = setTimeout(fetchAndApplyLiveScores, 5 * 60 * 1000);
         }
     }
 }
@@ -689,8 +655,7 @@ function syncLayoutPositions() {
 }
 
 function handleNodeClickEvent(element, node) {
-    if (!node.matchDataRef)
-        return;
+    if (!node.matchDataRef) return;
     document.querySelectorAll('.bracket-node').forEach(n => n.classList.remove('selected-view'));
     element.classList.add('selected-view');
 
@@ -702,8 +667,7 @@ function handleNodeClickEvent(element, node) {
 
 function calculateCountdownString(kickoffDateIso) {
     const timeDeltaMs = new Date(kickoffDateIso) - new Date();
-    if (timeDeltaMs <= 0)
-        return "Match Starting...";
+    if (timeDeltaMs <= 0) return "Match Starting...";
 
     const netMinutes = Math.floor(timeDeltaMs / 1000 / 60);
     const netHours = Math.floor(netMinutes / 60);
@@ -719,36 +683,27 @@ function calculateCountdownString(kickoffDateIso) {
 }
 
 function updateLiveCountdowns() {
-    if (!currentlySelectedMatch)
-        return;
-    if (currentlySelectedMatch.status?.type?.state !== "pre")
-        return;
+    if (!currentlySelectedMatch) return;
+    if (currentlySelectedMatch.status?.type?.state !== "pre") return;
 
     const clockElement = document.querySelector('.match-clock');
-    if (!clockElement)
-        return;
+    if (!clockElement) return;
 
     const targetISO = clockElement.getAttribute('data-kickoff');
-    if (!targetISO)
-        return;
+    if (!targetISO) return;
 
     clockElement.textContent = calculateCountdownString(targetISO);
 }
 
 function updateStatsPanelUI(match) {
-    if (!match)
-        return;
+    if (!match) return;
 
     const comp = match?.competitions?.[0];
-    if (!comp)
-        return;
+    if (!comp) return;
     const home = comp.competitors?.find(c => c.homeAway === 'home');
     const away = comp.competitors?.find(c => c.homeAway === 'away');
     const safeTeam = (team) => team || {
-        team: {
-            displayName: 'TBD',
-            abbreviation: ''
-        },
+        team: { displayName: 'TBD', abbreviation: '' },
         score: 0,
         statistics: []
     };
@@ -759,20 +714,16 @@ function updateStatsPanelUI(match) {
     let clockDisplay = match?.status?.type?.detail || '';
     let staticKickoffTime = '';
 
-	if (matchState === "pre" && match.date) {
+    if (matchState === "pre" && match.date) {
         const utcKickoff = new Date(match.date);
         staticKickoffTime = utcKickoff.toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
         clockDisplay = calculateCountdownString(match.date);
     }
 
     const getMetric = (teamData, field) => {
-        if (!teamData.statistics)
-            return 0;
+        if (!teamData.statistics) return 0;
         const statObj = teamData.statistics.find(s => s.name === field);
         return statObj ? parseFloat(statObj.displayValue) : 0;
     };
@@ -785,8 +736,6 @@ function updateStatsPanelUI(match) {
     const awaySOG = getMetric(awayTeam, "shotsOnTarget");
     const homeCorners = getMetric(homeTeam, "wonCorners");
     const awayCorners = getMetric(awayTeam, "wonCorners");
-
-    // Capture New Team Statistics
     const homeKeyPasses = getMetric(homeTeam, "shotAssists");
     const awayKeyPasses = getMetric(awayTeam, "shotAssists");
     const homeFouls = getMetric(homeTeam, "foulsCommitted");
@@ -800,8 +749,7 @@ function updateStatsPanelUI(match) {
     document.documentElement.style.setProperty('--ambient-away', `${awayColor}26`);
 
     const calculateRatio = (v1, v2) => {
-        if (v1 === 0 && v2 === 0)
-            return 50;
+        if (v1 === 0 && v2 === 0) return 50;
         return (v1 / (v1 + v2)) * 100;
     };
 
@@ -830,20 +778,16 @@ function updateStatsPanelUI(match) {
         ${renderStatBar("Fouls Committed", escapeHtml(homeFouls), calculateRatio(homeFouls, awayFouls), escapeHtml(awayFouls), homeColor, awayColor)}
     `;
 
-// Chronological Match Timeline Event Log Layer
     const timelineDetails = comp.details || [];
     if (timelineDetails.length > 0) {
         baseHTML += `
             <div class="match-events-timeline-wrapper" style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.08); padding-top:14px;">
                 <h4 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,0.4); font-weight:700;">Match Incidents Timeline</h4>
-                
                 <div class="timeline-scroll-axis" style="max-height:160px;">
                     <div class="premium-scroller" style="animation-duration: 14s;">
         `;
         
-        // 1. Create a separate string variable to harvest all incident records
         let timelineRowsHTML = "";
-        
         timelineDetails.forEach(incident => {
             let badgeIcon = '⚽';
             let iconThemeColor = '#ffffff';
@@ -868,7 +812,6 @@ function updateStatsPanelUI(match) {
             `;
         });
 
-        // 2. Inject the compiled string segment TWICE to keep the marquee completely seamless
         baseHTML += `
                     ${timelineRowsHTML}
                     ${timelineRowsHTML}
@@ -884,11 +827,7 @@ function updateStatsPanelUI(match) {
 function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, (char) => {
         return ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[char];
     });
 }
@@ -944,7 +883,6 @@ if (tabMatchStats && tabLeaders) {
 }
 
 function renderLeadersDashboard() {
-    const avgAttendance = globalTournamentStats.attendance > 0 ? Math.round(globalTournamentStats.attendance / 32) : 0;
     let dashboardHTML = `
         <div class="stats-insights-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px;">
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 4px; border-radius: 6px; text-align: center;">
@@ -964,14 +902,12 @@ function renderLeadersDashboard() {
                 <div style="font-size: 16px; font-weight: 800; color: #ff3b30; margin-top: 4px;">${globalTournamentStats.reds || 0}</div>
             </div>
         </div>
-
         <div style="background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.2)); border: 1px solid rgba(212,175,55,0.2); padding: 12px; border-radius: 8px; margin-bottom: 25px; text-align: center;">
             <div style="font-size: 9px; text-transform: uppercase; color: #d4af37; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 4px;">Highest Scoring Match</div>
             <div style="font-size: 13px; font-weight: 700; color: #ffffff;">${escapeHtml(globalTournamentStats.highestScoringMatch)}</div>
         </div>
     `;
 
-    // FIXED: Appending array chunks perfectly inside leadersListsHTML string variable target
     let leadersListsHTML = `
         <div class="leaders-section" style="margin-bottom: 25px;">
             <div class="leaders-title">Golden Boot (Goals)</div>
@@ -1041,7 +977,6 @@ function renderLeadersDashboard() {
 
     leadersListsHTML += `</div>`;
 
-    // Inject compiled content blocks into the dynamic full-height loop container tracking
     dashboardHTML += `
         <div class="timeline-scroll-axis" style="height: calc(100vh - 290px); max-height: none;">
             <div class="premium-scroller" style="animation-duration: 45s;">
@@ -1055,7 +990,6 @@ function renderLeadersDashboard() {
 
 function computeLiveScorers(events) {
     const scorerMap = {};
-
     events.forEach(evt => {
         const competitors = evt?.competitions?.[0]?.competitors || [];
         const details = evt?.competitions?.[0]?.details || [];
@@ -1079,11 +1013,7 @@ function computeLiveScorers(events) {
                     }
 
                     if (!scorerMap[playerName]) {
-                        scorerMap[playerName] = {
-                            name: playerName,
-                            team: teamAbbr.toUpperCase(),
-                            goals: 0
-                        };
+                        scorerMap[playerName] = { name: playerName, team: teamAbbr.toUpperCase(), goals: 0 };
                     }
                     scorerMap[playerName].goals += 1;
                 }
@@ -1092,35 +1022,24 @@ function computeLiveScorers(events) {
     });
 
     return Object.values(scorerMap)
-    .sort((a, b) => b.goals - a.goals)
-    .slice(0, 5)
-    .map((player, idx) => ({
-            rank: idx + 1,
-            name: player.name,
-            team: player.team,
-            value: player.goals
-        }));
+        .sort((a, b) => b.goals - a.goals)
+        .slice(0, 5)
+        .map((player, idx) => ({ rank: idx + 1, name: player.name, team: player.team, value: player.goals }));
 }
 
 function computeLiveTeamAssists(events) {
     const teamAssistMap = {};
-
     events.forEach(evt => {
         const competitors = evt?.competitions?.[0]?.competitors || [];
         competitors.forEach(comp => {
             if (comp.team && comp.statistics) {
                 const teamName = comp.team.displayName || "Unknown Team";
                 const teamAbbr = (comp.team.abbreviation || "TBD").toUpperCase();
-
                 const assistStat = comp.statistics.find(s => s.name === "goalAssists");
                 const assistsInMatch = assistStat ? parseInt(assistStat.displayValue) || 0 : 0;
 
                 if (!teamAssistMap[teamAbbr]) {
-                    teamAssistMap[teamAbbr] = {
-                        name: teamName,
-                        abbr: teamAbbr,
-                        assists: 0
-                    };
+                    teamAssistMap[teamAbbr] = { name: teamName, abbr: teamAbbr, assists: 0 };
                 }
                 teamAssistMap[teamAbbr].assists += assistsInMatch;
             }
@@ -1128,35 +1047,24 @@ function computeLiveTeamAssists(events) {
     });
 
     return Object.values(teamAssistMap)
-    .sort((a, b) => b.assists - a.assists)
-    .slice(0, 5)
-    .map((team, idx) => ({
-            rank: idx + 1,
-            name: team.name,
-            team: team.abbr,
-            value: team.assists
-        }));
+        .sort((a, b) => b.assists - a.assists)
+        .slice(0, 5)
+        .map((team, idx) => ({ rank: idx + 1, name: team.name, team: team.abbr, value: team.assists }));
 }
 
 function computeLiveTeamKeyPasses(events) {
     const teamKeyPassMap = {};
-
     events.forEach(evt => {
         const competitors = evt?.competitions?.[0]?.competitors || [];
         competitors.forEach(comp => {
             if (comp.team && comp.statistics) {
                 const teamName = comp.team.displayName || "Unknown Team";
                 const teamAbbr = (comp.team.abbreviation || "TBD").toUpperCase();
-
                 const passStat = comp.statistics.find(s => s.name === "shotAssists");
                 const passesInMatch = passStat ? parseInt(passStat.displayValue) || 0 : 0;
 
                 if (!teamKeyPassMap[teamAbbr]) {
-                    teamKeyPassMap[teamAbbr] = {
-                        name: teamName,
-                        abbr: teamAbbr,
-                        passes: 0
-                    };
+                    teamKeyPassMap[teamAbbr] = { name: teamName, abbr: teamAbbr, passes: 0 };
                 }
                 teamKeyPassMap[teamAbbr].passes += passesInMatch;
             }
@@ -1164,14 +1072,9 @@ function computeLiveTeamKeyPasses(events) {
     });
 
     return Object.values(teamKeyPassMap)
-    .sort((a, b) => b.passes - a.passes)
-    .slice(0, 5)
-    .map((team, idx) => ({
-            rank: idx + 1,
-            name: team.name,
-            team: team.abbr,
-            value: team.passes
-        }));
+        .sort((a, b) => b.passes - a.passes)
+        .slice(0, 5)
+        .map((team, idx) => ({ rank: idx + 1, name: team.name, team: team.abbr, value: team.passes }));
 }
 
 function computeGlobalTournamentStats(events) {
@@ -1179,14 +1082,12 @@ function computeGlobalTournamentStats(events) {
     let totalAttendance = 0;
     let totalReds = 0;
     let totalCleanSheets = 0;
-
     let highestMatchScore = -1;
     let highestScoringMatchStr = "No games recorded";
 
     events.forEach(evt => {
         const comp = evt?.competitions?.[0];
-        if (!comp)
-            return;
+        if (!comp) return;
 
         if (comp.attendance && Number.isFinite(comp.attendance)) {
             totalAttendance += comp.attendance;
@@ -1199,11 +1100,8 @@ function computeGlobalTournamentStats(events) {
             const combinedScore = score0 + score1;
 
             totalGoals += combinedScore;
-
-            if (score0 === 0)
-                totalCleanSheets++;
-            if (score1 === 0)
-                totalCleanSheets++;
+            if (score0 === 0) totalCleanSheets++;
+            if (score1 === 0) totalCleanSheets++;
 
             if (combinedScore > highestMatchScore) {
                 highestMatchScore = combinedScore;
@@ -1222,17 +1120,13 @@ function computeGlobalTournamentStats(events) {
     });
 
     return {
-        goals: totalGoals,
-        attendance: totalAttendance,
-        reds: totalReds,
-        cleanSheets: totalCleanSheets,
-        highestScoringMatch: highestScoringMatchStr
+        goals: totalGoals, attendance: totalAttendance, reds: totalReds,
+        cleanSheets: totalCleanSheets, highestScoringMatch: highestScoringMatchStr
     };
 }
 
 function computeLiveDisciplinaryTeams(events) {
     const cardMap = {};
-
     events.forEach(evt => {
         const competitors = evt?.competitions?.[0]?.competitors || [];
         const details = evt?.competitions?.[0]?.details || [];
@@ -1255,13 +1149,7 @@ function computeLiveDisciplinaryTeams(events) {
 
                 if (teamAbbr !== "TBD") {
                     if (!cardMap[teamAbbr]) {
-                        cardMap[teamAbbr] = {
-                            name: teamName,
-                            abbr: teamAbbr,
-                            points: 0,
-                            yellows: 0,
-                            reds: 0
-                        };
+                        cardMap[teamAbbr] = { name: teamName, abbr: teamAbbr, points: 0, yellows: 0, reds: 0 };
                     }
                     if (isRed) {
                         cardMap[teamAbbr].points += 3;
@@ -1276,12 +1164,10 @@ function computeLiveDisciplinaryTeams(events) {
     });
 
     return Object.values(cardMap)
-    .sort((a, b) => b.points - a.points)
-    .slice(0, 5)
-    .map((team, idx) => ({
-            rank: idx + 1,
-            name: team.name,
-            team: team.abbr,
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 5)
+        .map((team, idx) => ({
+            rank: idx + 1, name: team.name, team: team.abbr,
             value: `${team.points} pts (🟨${team.yellows} 🟥${team.reds})`
         }));
 }
@@ -1289,7 +1175,6 @@ function computeLiveDisciplinaryTeams(events) {
 function drawCanvasContext() {
     ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 	
-	// --- NEW UX CALCULATOR: IDENTIFY ELIMINATED TEAMS ---
     const eliminatedTeams = new Set();
     for (let r = 0; r < TOTAL_ROUNDS; r++) {
         for (let i = 0; i < bracketTree[r].length; i++) {
@@ -1298,39 +1183,30 @@ function drawCanvasContext() {
             }
         }
     }
-    // ------------------------------------------------------------
 
     const effectiveAudioBass = settings.audioReactive ? Math.min(1, Math.max(0, audioBass)) : 0;
 	
-	
-	// ==========================================================================
-    // ADDITION 1: HIGH-TECH CONCENTRIC RADAR LATTICE RINGS
-    // ==========================================================================
+    // HIGH-TECH CONCENTRIC RADAR LATTICE RINGS
     ctx.save();
     for (let round = 0; round < TOTAL_ROUNDS; round++) {
         const radiusPx = (RADII_PROPORTIONS[round] / 100) * cachedBaseRadius;
         ctx.beginPath();
         ctx.arc(cachedCx, cachedCy, radiusPx, 0, Math.PI * 2);
         
-        // Subtle baseline alpha opacity that throbs gently with system music bass frequencies
         const ringAlpha = 0.02 + (effectiveAudioBass * 0.03);
         ctx.strokeStyle = `rgba(255, 255, 255, ${ringAlpha})`;
         ctx.lineWidth = 1;
-        ctx.setLineDash([4, 16]); // Crisp tech-styled dot design pattern
+        ctx.setLineDash([4, 16]); 
         ctx.stroke();
     }
     ctx.restore();
 
-    // ==========================================================================
-    // ADDITION 2: AUDIO-RESPONSIVE CENTRAL ENERGY FIELD
-    // ==========================================================================
+    // AUDIO-RESPONSIVE CENTRAL ENERGY FIELD
     if (settings.showCenterGlow) {
         ctx.save();
         const innerRadius = (RADII_PROPORTIONS[TOTAL_ROUNDS - 1] / 100) * cachedBaseRadius;
-        
-        // Build a smooth volumetric core gradient directly behind the center trophy element
         const glowGrad = ctx.createRadialGradient(cachedCx, cachedCy, 0, cachedCx, cachedCy, innerRadius * 1.8);
-        const coreAlpha = 0.04 + (effectiveAudioBass * 0.12); // Spikes on heavy baseline beats
+        const coreAlpha = 0.04 + (effectiveAudioBass * 0.12); 
         
         glowGrad.addColorStop(0, `rgba(212, 175, 55, ${coreAlpha})`);
         glowGrad.addColorStop(0.5, `rgba(212, 175, 55, ${coreAlpha * 0.25})`);
@@ -1343,7 +1219,7 @@ function drawCanvasContext() {
         ctx.restore();
     }
 
-for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
+    for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
         const currentRadius = (RADII_PROPORTIONS[round] / 100) * cachedBaseRadius;
         const nextRadius = (RADII_PROPORTIONS[round + 1] / 100) * cachedBaseRadius;
         const midRadius = (currentRadius + nextRadius) / 2;
@@ -1368,17 +1244,15 @@ for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
 
             const isWinnerTrack = (!node.isEmpty && parentNode.label === node.label);
             const isHoveredTrack = (hoveredTeam && node.label === hoveredTeam && parentNode.label === hoveredTeam);
-            
-            // Track if this line belongs to a knocked-out nation
             const isEliminated = eliminatedTeams.has(node.label);
 
             if (isHoveredTrack) {
-                // HOVER OVERRIDE: Keep it brilliantly lit on cursor hover for interaction depth
                 const teamColor = FLAG_COLORS[node.label] || '#ffffff';
                 ctx.strokeStyle = teamColor;
                 ctx.lineWidth = settings.winnerLineBase + 3.5 + (effectiveAudioBass * settings.glowIntensity * 2.0);
                 
-                if (isAndroid) {
+                // UPGRADED: Utilizes universal cross-mobile layer optimization switch
+                if (isMobileDevice) {
                     ctx.save(); ctx.lineWidth *= 2.2; ctx.strokeStyle = teamColor + '33'; ctx.stroke(); ctx.restore();
                 } else {
                     ctx.shadowColor = teamColor;
@@ -1388,34 +1262,40 @@ for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
             else if (isWinnerTrack) {
                 const teamColor = FLAG_COLORS[node.label] || '#d4af37';
                 
-                if (isEliminated) {
-                    // OPTIMIZED GHOST TRAIL: Dim down opacity to 20% ('33' hex) and strip glowing filters
+                if (isEliminated && !absoluteChampionIso) {
                     ctx.strokeStyle = teamColor + '33'; 
                     ctx.lineWidth = settings.winnerLineBase * 0.75;
-                    if (!isAndroid) ctx.shadowBlur = 0; // Saves GPU cycles completely
+                    if (!isMobileDevice) ctx.shadowBlur = 0; 
                 } else {
-                    // ACTIVE PATHWAY: Full intense neon glare
-                    ctx.strokeStyle = teamColor;
-                    ctx.lineWidth = settings.winnerLineBase + (effectiveAudioBass * settings.glowIntensity * 2.0);
+                    const isAbsoluteChamp = (absoluteChampionIso && node.label === absoluteChampionIso);
                     
-                    if (isAndroid) {
-                        ctx.save(); ctx.lineWidth *= 2.0; ctx.strokeStyle = teamColor + '26'; ctx.stroke(); ctx.restore();
+                    if (isAbsoluteChamp) {
+                        ctx.strokeStyle = '#00f5ff'; 
+                        ctx.lineWidth = settings.winnerLineBase + 4.5 + (effectiveAudioBass * settings.glowIntensity * 3.0);
+                        if (!isMobileDevice) {
+                            ctx.shadowColor = '#ff007f'; 
+                            ctx.shadowBlur = 28 + (effectiveAudioBass * settings.glowIntensity * 16);
+                        }
                     } else {
-                        ctx.shadowColor = teamColor;
-                        ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
+                        ctx.strokeStyle = teamColor;
+                        ctx.lineWidth = settings.winnerLineBase + (effectiveAudioBass * settings.glowIntensity * 2.0);
+                        if (isMobileDevice) {
+                            ctx.save(); ctx.lineWidth *= 2.0; ctx.strokeStyle = teamColor + '26'; ctx.stroke(); ctx.restore();
+                        } else {
+                            ctx.shadowColor = teamColor;
+                            ctx.shadowBlur = 8 + (effectiveAudioBass * settings.glowIntensity * 18);
+                        }
                     }
                 }
             } 
             else if (node.isLive) {
-                // Radials for active broadcast configurations...
                 const liveGradient = ctx.createRadialGradient(cachedCx, cachedCy, currentRadius, cachedCx, cachedCy, nextRadius);
                 liveGradient.addColorStop(0, '#00f5ff'); liveGradient.addColorStop(0.5, '#ff007f'); liveGradient.addColorStop(1, '#ffcc00');
                 ctx.strokeStyle = liveGradient;
                 ctx.lineWidth = 3.0 + (effectiveAudioBass * settings.glowIntensity * 4);
-                if (!isAndroid) { ctx.shadowColor = '#ff007f'; ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12); }
+                if (!isMobileDevice) { ctx.shadowColor = '#ff007f'; ctx.shadowBlur = 10 + (effectiveAudioBass * settings.glowIntensity * 12); }
             } 
             else {
-                // Background grid lines layout defaults...
                 const distanceFromCenter = (TOTAL_ROUNDS - 1) - round;
                 const baseGrid = settings.gridColor;
                 const gold = { r: 212, g: 175, b: 55 };
@@ -1425,10 +1305,9 @@ for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
                 const alpha = 0.12 + glowFade * 0.28 + effectiveAudioBass * 0.05;
                 ctx.strokeStyle = `rgba(${blendedR}, ${blendedG}, ${blendedB}, ${Math.min(alpha, 0.35)})`;
                 ctx.lineWidth = 1.0 + glowFade * 0.25 + (effectiveAudioBass * settings.glowIntensity * 0.65);
-                if (!isAndroid) { ctx.shadowBlur = glowFade > 0 ? 2 + (effectiveAudioBass * 6) : 0; ctx.shadowColor = `rgba(212, 175, 55, ${0.15 + glowFade * 0.35})`; }
+                if (!isMobileDevice) { ctx.shadowBlur = glowFade > 0 ? 2 + (effectiveAudioBass * 6) : 0; ctx.shadowColor = `rgba(212, 175, 55, ${0.15 + glowFade * 0.35})`; }
             }
 
-            // Draw line vertex segment points track context...
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
             let totalSegments = points.length - 1;
@@ -1441,30 +1320,72 @@ for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
                     break;
                 }
             }
-            ctx.stroke();
 
-            // --- OPTIMIZATION LOCK: ONLY RUN ANIMATED LASER DASHES FOR LIVE TEAMS ---
-            if ((isWinnerTrack || isHoveredTrack) && !isLoadAnimating && !isEliminated) {
+            // PREMIUM CHAMPIONSHIP LIQUID CHROME ENGINE (GOLD & PLATINUM BLEND)
+            const isAbsoluteChamp = (absoluteChampionIso && node.label === absoluteChampionIso);
+
+            if (isAbsoluteChamp && !isLoadAnimating) {
+                const getLiquidChromeColor = (phase) => {
+                    const p = (phase % 1 + 1) % 1; 
+                    const wave = (Math.sin(p * Math.PI * 2) + 1) / 2; 
+                    const r = Math.round(255 * wave + 212 * (1 - wave));
+                    const g = Math.round(255 * wave + 175 * (1 - wave));
+                    const b = Math.round(255 * wave + 55 * (1 - wave));
+                    return `rgb(${r}, ${g}, ${b})`;
+                };
+
+                const liquidGrad = ctx.createLinearGradient(points[0].x, points[0].y, points[points.length - 1].x, points[points.length - 1].y);
+                const flowVelocity = performance.now() * 0.0006; 
+
+                for (let stop = 0; stop <= 1; stop += 0.2) {
+                    const colorPhase = flowVelocity - (stop * 1.5); 
+                    liquidGrad.addColorStop(stop, getLiquidChromeColor(colorPhase));
+                }
+
                 ctx.save();
-                const teamColor = FLAG_COLORS[node.label] || '#d4af37';
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.strokeStyle = teamColor;
-                ctx.lineWidth = settings.winnerLineBase + 0.8;
-                ctx.setLineDash([14, 48]);
-                ctx.lineDashOffset = -globalRotation * 280;
-                ctx.shadowColor = '#ffffff';
-                ctx.shadowBlur = isHoveredTrack ? 14 : 8;
+                ctx.strokeStyle = 'rgba(8, 8, 12, 0.95)';
+                ctx.lineWidth = settings.winnerLineBase + 7.0;
+                if (!isMobileDevice) {
+                    ctx.shadowColor = FLAG_COLORS[node.label] || '#d4af37'; 
+                    ctx.shadowBlur = 24 + (effectiveAudioBass * 14); 
+                }
                 ctx.stroke();
                 ctx.restore();
+
+                ctx.save();
+                ctx.strokeStyle = liquidGrad;
+                ctx.lineWidth = settings.winnerLineBase + 3.0 + (effectiveAudioBass * settings.glowIntensity * 2.0);
+                ctx.globalCompositeOperation = 'source-over'; 
+                
+                if (!isMobileDevice) {
+                    ctx.shadowColor = 'rgba(255, 255, 255, 0.25)'; 
+                    ctx.shadowBlur = 6;
+                }
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                ctx.stroke();
             }
-            // -----------------------------------------------------------------------
+
+			if ((isWinnerTrack || isHoveredTrack) && !isLoadAnimating && !isEliminated && !isAbsoluteChamp) {
+				ctx.save();
+				const teamColor = FLAG_COLORS[node.label] || '#d4af37';
+				ctx.globalCompositeOperation = 'lighter';
+				ctx.strokeStyle = teamColor;
+				ctx.lineWidth = settings.winnerLineBase + 0.8;
+				ctx.setLineDash([14, 48]);
+				ctx.lineDashOffset = -globalRotation * 280;
+				ctx.shadowColor = '#ffffff';
+				ctx.shadowBlur = isHoveredTrack ? 14 : 8;
+				ctx.stroke();
+				ctx.restore();
+			}
         });
     }
 
     if (settings.audioReactive && shockwaves.length > 0) {
         for (let i = shockwaves.length - 1; i >= 0; i--) {
             const wave = shockwaves[i];
-
             wave.radius += cachedBaseRadius * 0.006;
             wave.alpha -= 0.012;
 
@@ -1476,18 +1397,19 @@ for (let round = 0; round < TOTAL_ROUNDS - 1; round++) {
             ctx.save();
             ctx.beginPath();
             ctx.arc(cachedCx, cachedCy, wave.radius, 0, Math.PI * 2);
-
             ctx.strokeStyle = `rgba(212, 175, 55, ${wave.alpha * settings.glowIntensity})`;
             ctx.lineWidth = 1.0 + (effectiveAudioBass * 2.5);
             ctx.shadowColor = 'rgba(212, 175, 55, 0.4)';
             ctx.shadowBlur = 12 * wave.alpha;
-
             ctx.stroke();
             ctx.restore();
         }
     }
 
-    particles.forEach(p => p.draw(ctx));
+    // UPGRADED: Unified structural index lookup handles clean performance sweeps
+    particlePool.forEach(p => {
+        if (p.active) p.draw(ctx);
+    });
 }
 
 function animateLoadLoop() {
@@ -1506,15 +1428,11 @@ function masterDriverOrbitLoop() {
     const now = performance.now();
     let deltaTimeMs = now - lastTime;
     
-    // SAFEGUARD: If the tab loses focus or heavily stutters, force a standard frame step
     if (deltaTimeMs > 100) deltaTimeMs = 16.67; 
-    
     const dt = deltaTimeMs / 16.67; 
     lastTime = now;
 
-    if (isDragging) {
-        // Position bound to pointer coordinates via listeners
-    } else {
+    if (!isDragging) {
         audioVelocity *= 0.94; 
         if (settings.audioReactive && audioBass > 0.4) {
             audioVelocity += (audioBass - 0.4) * 0.0028; 
@@ -1539,22 +1457,17 @@ function masterDriverOrbitLoop() {
         }
     }
 
-    if (particles.length > 0) {
-        for (let i = particles.length - 1; i >= 0; i--) {
-            particles[i].update();
-            if (particles[i].alpha <= 0) {
-                particles.splice(i, 1);
-            }
+    // UPGRADED: Pool loop uses indexing instead of continuous instantiation arrays manipulations
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+        if (particlePool[i].active) {
+            particlePool[i].update();
         }
     }
 	
-	// --- NEW CODE: CHAMPION FIREWORKS LOOP ---
     if (absoluteChampionIso && !isLoadAnimating && Math.random() < 0.15) {
-        // Launches continuous stylized bursts out from the center axis coordinates
         const champColor = FLAG_COLORS[absoluteChampionIso] || '#d4af37';
         triggerParticleBlast(cachedCx, cachedCy, champColor);
     }
-    // -----------------------------------------
 
     drawCanvasContext();
 
@@ -1565,14 +1478,7 @@ function masterDriverOrbitLoop() {
     }
 }
 
-function triggerParticleBlast(x, y, color) {
-    for (let i = 0; i < 65; i++) {
-        particles.push(new SparkParticle(x, y, color));
-    }
-}
-
 function handleDisplayResize() {
-// Cap DPR at 2 for performance, avoiding 3x or 4x texture overloads on Android flagships
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = container.clientWidth * dpr;
     canvas.height = container.clientHeight * dpr;
@@ -1588,8 +1494,7 @@ function handleDisplayResize() {
 
 if (window.wallpaperRegisterAudioListener) {
     window.wallpaperRegisterAudioListener((audioArray) => {
-        if (!Array.isArray(audioArray) || audioArray.length < 68)
-            return;
+        if (!Array.isArray(audioArray) || audioArray.length < 68) return;
         const bassLeft = (audioArray[0] + audioArray[1] + audioArray[2] + audioArray[3]) / 4;
         const bassRight = (audioArray[64] + audioArray[65] + audioArray[66] + audioArray[67]) / 4;
         audioBass = (bassLeft + bassRight) / 2;
@@ -1598,9 +1503,7 @@ if (window.wallpaperRegisterAudioListener) {
         if (settings.audioReactive && audioBass > 0.40) {
             if (shockwaves.length === 0 || shockwaves[shockwaves.length - 1].radius > (cachedBaseRadius * 0.12)) {
                 shockwaves.push({
-                    radius: cachedBaseRadius * 0.04,
-                    alpha: 0.45,
-                    maxRadius: cachedBaseRadius * 0.48
+                    radius: cachedBaseRadius * 0.04, alpha: 0.45, maxRadius: cachedBaseRadius * 0.48
                 });
             }
         }
@@ -1625,8 +1528,7 @@ if (window.wallpaperRegisterAudioListener) {
 
 window.wallpaperPropertyListener = {
     applyUserProperties: function (properties) {
-        if (!properties)
-            return;
+        if (!properties) return;
         if (properties.rotationSpeed && properties.rotationSpeed.value !== undefined) {
             const parsedSpeed = Number(properties.rotationSpeed.value);
             if (Number.isFinite(parsedSpeed)) {
@@ -1643,13 +1545,11 @@ window.wallpaperPropertyListener = {
         if (properties.showCenterGlow && properties.showCenterGlow.value !== undefined) {
             settings.showCenterGlow = !!properties.showCenterGlow.value;
             const centerGlow = document.querySelector('.center-glow');
-            if (centerGlow)
-                centerGlow.style.display = settings.showCenterGlow ? '' : 'none';
+            if (centerGlow) centerGlow.style.display = settings.showCenterGlow ? '' : 'none';
         }
         if (properties.audioReactive && properties.audioReactive.value !== undefined) {
             settings.audioReactive = !!properties.audioReactive.value;
         }
-		// --- NEW: LIVE COUNTDOWN VISIBILITY OVERRIDE ---
         if (properties.show2030Countdown && properties.show2030Countdown.value !== undefined) {
             settings.show2030Countdown = !!properties.show2030Countdown.value;
             const tickerEl = document.getElementById('centennialCountdown');
@@ -1680,13 +1580,6 @@ window.wallpaperPropertyListener = {
     }
 };
 
-buildTreeStructure();
-refreshNodeDOMStructures();
-handleDisplayResize();
-fetchAndApplyLiveScores();
-
-window.tournamentPollingInterval = setInterval(fetchAndApplyLiveScores, 5 * 60 * 1000);
-
 let resizeDebounceTimeout;
 function unifiedDeviceViewportSync() {
     clearTimeout(resizeDebounceTimeout);
@@ -1700,10 +1593,8 @@ const getPointerAngle = (clientX, clientY) => {
 };
 
 container.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0)
-        return;
-    if (e.target.closest('#statsPanel'))
-        return;
+    if (e.button !== 0) return;
+    if (e.target.closest('#statsPanel')) return;
 
     isDragging = true;
     hasDraggedSignificant = false;
@@ -1711,15 +1602,13 @@ container.addEventListener('pointerdown', (e) => {
     const currentAngle = getPointerAngle(e.clientX, e.clientY);
     dragStartAngle = currentAngle;
     dragStartRotation = globalRotation;
-
     lastPointerAngle = currentAngle;
     lastPointerTime = performance.now();
     angularVelocity = 0;
 });
 
 window.addEventListener('pointermove', (e) => {
-    if (!isDragging)
-        return;
+    if (!isDragging) return;
     if (e.target.closest('#statsPanel')) {
         isDragging = false;
         return;
@@ -1730,17 +1619,14 @@ window.addEventListener('pointermove', (e) => {
     const deltaTime = now - lastPointerTime;
 
     let deltaAngle = currentAngle - lastPointerAngle;
-    if (deltaAngle > Math.PI)
-        deltaAngle -= Math.PI * 2;
-    if (deltaAngle < -Math.PI)
-        deltaAngle += Math.PI * 2;
+    if (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+    if (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
 
     if (Math.abs(currentAngle - dragStartAngle) > 0.03) {
         hasDraggedSignificant = true;
     }
 
     globalRotation += deltaAngle;
-
     if (deltaTime > 0) {
         angularVelocity = deltaAngle / deltaTime;
     }
@@ -1750,10 +1636,8 @@ window.addEventListener('pointermove', (e) => {
 });
 
 window.addEventListener('pointerup', () => {
-    if (!isDragging)
-        return;
+    if (!isDragging) return;
     isDragging = false;
-
     if (performance.now() - lastPointerTime > 80) {
         angularVelocity = 0;
     }
@@ -1767,23 +1651,14 @@ window.addEventListener('pointercancel', () => {
 window.addEventListener('resize', unifiedDeviceViewportSync);
 window.addEventListener('orientationchange', unifiedDeviceViewportSync);
 
-// ==========================================================================
-// NEW: 2030 CENTENNIAL WORLD CUP LONG-TERM COUNTDOWN ENGINE
-// ==========================================================================
 function initializeCentennialCupCountdown() {
-	
-	// Flag that the tournament has concluded globally
     window.isCentennialCountdownActive = true;
-    // Target our brand new floating HUD element instead of the sidebar clock
     const clockElement = document.getElementById('centennialCountdown');
     if (!clockElement) return;
 
-	// Only un-hide the element if the user settings allow it
     if (settings.show2030Countdown) {
         clockElement.classList.remove('hidden');
     }
-    // Show the container immediately by stripping the hidden tag profile
-    clockElement.classList.remove('hidden');
     
     const target2030 = new Date('2030-06-07T18:00:00Z');
 
@@ -1793,11 +1668,8 @@ function initializeCentennialCupCountdown() {
             clockElement.textContent = "🏆 2030 CENTENNIAL CUP IS LIVE 🏆";
             return;
         }
-
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        
-        // Clean, stylized tracking string output
         clockElement.textContent = `Road to 2030 • ${days} Days ${hours} Hours Left`;
     }
 
@@ -1805,15 +1677,22 @@ function initializeCentennialCupCountdown() {
     setInterval(updateTimer, 1000 * 60 * 60); 
 }
 
-// --- RESPONSIVE LIVE MATCH SIMULATOR ---
+// RESPONSIVE LIVE MATCH SIMULATOR
 window.simulateLiveGrandFinal = function(homeIso = 'br', awayIso = 'de') {
     isLoadAnimating = false;
     absoluteChampionIso = null;
 	
-	// Clear out any active 2030 countdown states during manual test runs
+    if (window.activeSimInterval) {
+        clearInterval(window.activeSimInterval);
+        window.activeSimInterval = null;
+    }
+    if (window.tournamentPollingTimeout) {
+        clearTimeout(window.tournamentPollingTimeout);
+        window.tournamentPollingTimeout = null;
+    }
+	
     currentlySelectedMatch = true;
 	
-	// Add these lines inside window.simulateLiveGrandFinal right near bannerEl resets
     const trophyEl = document.getElementById('centerTrophy');
     if (trophyEl) trophyEl.classList.remove('champion-zoom');
     
@@ -1848,13 +1727,12 @@ window.simulateLiveGrandFinal = function(homeIso = 'br', awayIso = 'de') {
     gf1.matchDataRef = mockMatch;
     gf2.matchDataRef = mockMatch;
 
-    // Only force open full-screen panel drawer during simulation step if user is on a desktop device
     if (window.innerWidth > 480) {
         handleNodeClickEvent(document.getElementById('node-4-0'), gf1);
     }
 
     let step = 0;
-    let matchInterval = setInterval(() => {
+    window.activeSimInterval = setInterval(() => {
         step++;
         let comp = mockMatch.competitions[0];
 
@@ -1870,27 +1748,24 @@ window.simulateLiveGrandFinal = function(homeIso = 'br', awayIso = 'de') {
             comp.details.push({ clock: { displayValue: "74'" }, type: { text: "Goal" }, athletesInvolved: [{ displayName: "Midfield Maestro" }] });
             triggerParticleBlast(gf2.x, gf2.y, FLAG_COLORS[awayIso]);
         } 
-		else if (step === 3) {
+        else if (step === 3) {
             mockMatch.status.type.state = "post";
             mockMatch.status.type.detail = "Final Score";
             comp.competitors[0].winner = true;
             gf1.isLive = false; gf2.isLive = false; gf2.isLoser = true;
             
             absoluteChampionIso = homeIso;
-            document.documentElement.style.setProperty('--champion-glow', FLAG_COLORS[homeIso]);
+            document.documentElement.style.setProperty('--champion-glow', '#d4af37'); 
 
-            // 1. Trigger victory banner layouts
             showVictoryBanner(homeIso);
-            clearInterval(matchInterval);
+            clearInterval(window.activeSimInterval);
+            window.activeSimInterval = null;
 
-            // 2. Force the standard UI to draw "Final Score" stats first
             refreshNodeDOMStructures();
             updateStatsPanelUI(mockMatch);
             drawCanvasContext();
-
-            // 3. IMMEDIATELY overwrite the gold capsule pill with the 2030 timer
             initializeCentennialCupCountdown();
-            return; // Exit early so the duplicate drawing functions at the very bottom don't run again
+            return; 
         }
 
         refreshNodeDOMStructures();
@@ -1898,3 +1773,10 @@ window.simulateLiveGrandFinal = function(homeIso = 'br', awayIso = 'de') {
         drawCanvasContext();
     }, 4000);
 };
+
+// INITIALIZATION BOOT ROUTINE ENTRY STRAP
+buildTreeStructure();
+refreshNodeDOMStructures();
+initializeParticlePool(); 
+handleDisplayResize();
+fetchAndApplyLiveScores();
