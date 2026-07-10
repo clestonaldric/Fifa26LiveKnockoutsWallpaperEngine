@@ -184,6 +184,24 @@ body, html {
     transition: all 0.4s ease;
 }
 
+/* ==========================================================================
+   SURGICAL OVERRIDE: MOROCCO CONTRAST & GREEN HUE SEPARATION
+   ========================================================================== */
+
+/* Maintain the low-profile silver rim to cleanly frame the slot bounds */
+.bracket-node.loser:has(img[alt="ma"]) {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.9),
+                0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Push contrast and pull back grayscale purely for Morocco's asset mapping */
+.bracket-node.loser img.flag-img[alt="ma"] {
+    /* Drop grayscale to 40% so the green star can actually show its color identity,
+       bump contrast to 170% to split the star from the red field,
+       and drop brightness to 45% to ensure it stays completely dark and moody */
+    filter: grayscale(40%) brightness(60%) contrast(250%);
+    opacity: 0.45;
+}
 /* Breathing animation for active live nodes */
 @keyframes liveBreathing {
     0% { 
